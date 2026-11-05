@@ -146,7 +146,7 @@ def api_luminaria(luminaria_id: int):
 
 @app.get("/api/sensores")
 def api_sensores():
-    return jsonify(consultas.sensores())
+    return jsonify(consultas.sensores(consultas.Filtros(request.args)))
 
 
 @app.get("/api/operacion/perfil-horario")

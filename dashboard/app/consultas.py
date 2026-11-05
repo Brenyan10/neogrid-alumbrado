@@ -353,6 +353,8 @@ def luminarias(f: Filtros) -> dict:
                 continue
             if f.zona and not f.ubicacion and lum["zona"] != f.zona:
                 continue
+            if f.origen == "FISICO" and not lum["es_fisica"]:
+                continue   # solo los 16 postes de la maqueta
             st = s.get(lum["luminaria_id"], {})
             u = ultimo.get(lum["luminaria_id"], {})
             intervalos = st.get("intervalos") or 0
@@ -440,7 +442,9 @@ def luminaria_detalle(luminaria_id: int, f: Filtros) -> dict:
     return {"filtros": f.eco(), "luminaria": info, **datos}
 
 
-def sensores() -> dict:
+def sensores(f: Filtros | None = None) -> dict:
+    solo_fisicos = bool(f and f.origen == "FISICO")
+
     def calcular():
         filas = bd.consultar("rel", """
             SELECT s.sensor_id, s.codigo, t.codigo AS tipo, t.nombre AS tipo_nombre, t.magnitud, t.unidad,
@@ -453,8 +457,10 @@ def sensores() -> dict:
             JOIN zona z ON z.zona_id = u.zona_id
             LEFT JOIN vivienda v ON v.vivienda_id = s.vivienda_id
             ORDER BY s.sensor_id""")
+        if solo_fisicos:
+            filas = [x for x in filas if x["es_fisico"]]
         return {"sensores": filas}
-    return cache.obtener(("sensores",), calcular)
+    return cache.obtener(("sensores", solo_fisicos), calcular)
 
 
 def perfil_horario(f: Filtros) -> dict:

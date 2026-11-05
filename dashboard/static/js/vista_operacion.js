@@ -25,7 +25,7 @@
       const p = NG.paramsFiltro();
       const [perfil, calor, estados, lums, sensores] = await Promise.all([
         NG.api("operacion/perfil-horario", p), NG.api("operacion/mapa-calor", p), NG.api("operacion/estados", p),
-        NG.api("luminarias", p), NG.api("sensores"),
+        NG.api("luminarias", p), NG.api("sensores", p),
       ]);
       const r1 = NG.el("div", { clase: "rejilla rejilla-2" });
       c.append(r1);

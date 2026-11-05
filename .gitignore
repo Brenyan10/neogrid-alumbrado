@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.env
+puente.env
+dashboard/datos/
+*.sqlite
+*.zip
+.venv/

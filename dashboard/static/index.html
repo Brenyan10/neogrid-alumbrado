@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NeoGrid · Alumbrado</title>
+<meta name="description" content="Tablero de datos del alumbrado público inteligente de la maqueta NeoGrid: modelo relacional, modelo multidimensional, ETL y datos en vivo.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@500;600&display=swap">
+<link rel="stylesheet" href="/static/css/estilos.css?v=1">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23121a2b'/%3E%3Ccircle cx='16' cy='13' r='6' fill='%23f3b54a'/%3E%3Crect x='14.5' y='18' width='3' height='9' rx='1.5' fill='%23c9d1dd'/%3E%3C/svg%3E">
+</head>
+<body>
+<a class="saltar" href="#contenido">Ir al contenido</a>
+<div class="marco">
+  <header class="cabecera">
+    <a class="marca" href="#/general" aria-label="NeoGrid, inicio">
+      <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#121a2b"/><circle cx="16" cy="13" r="6" fill="#f3b54a"/><rect x="14.5" y="18" width="3" height="9" rx="1.5" fill="#c9d1dd"/></svg>
+      <span class="marca-texto"><strong>NeoGrid</strong> Alumbrado público</span>
+    </a>
+    <p class="fuente-datos" id="fuente-datos">Conectando…</p>
+    <button class="boton-icono" id="boton-tema" type="button" aria-label="Cambiar tema claro u oscuro" title="Tema claro u oscuro">
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z" fill="currentColor"/></svg>
+    </button>
+    <button class="boton-icono menu-movil" id="boton-menu" type="button" aria-label="Abrir menú" aria-expanded="false" aria-controls="navegacion">
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+  </header>
+
+  <nav class="navegacion" id="navegacion" aria-label="Secciones">
+    <p class="nav-grupo">Operación</p>
+    <a href="#/general" data-vista="general">Vista general</a>
+    <a href="#/luminarias" data-vista="luminarias">Luminarias y sensores</a>
+    <a href="#/consumo" data-vista="consumo">Consumo y eficiencia</a>
+    <a href="#/fallas" data-vista="fallas">Fallas y mantenimiento</a>
+    <p class="nav-grupo">Modelos de datos</p>
+    <a href="#/relacional" data-vista="relacional">Modelo relacional</a>
+    <a href="#/multidimensional" data-vista="multidimensional">Modelo multidimensional</a>
+    <a href="#/explorador" data-vista="explorador">Explorador de datos</a>
+    <a href="#/comparacion" data-vista="comparacion">Comparación de modelos</a>
+    <p class="nav-grupo">Procesos</p>
+    <a href="#/etl" data-vista="etl">Monitor ETL</a>
+    <div class="nav-pie">
+      <p><span class="punto punto-fisico"></span>Dato físico (maqueta)</p>
+      <p><span class="punto punto-simulado"></span>Dato simulado</p>
+      <p><span class="punto punto-calculado"></span>Dato calculado</p>
+    </div>
+  </nav>
+
+  <div class="principal">
+    <form class="filtros" id="filtros" aria-label="Filtros globales">
+      <div class="campo campo-rango">
+        <label for="f-periodo">Periodo</label>
+        <select id="f-periodo">
+          <option value="todo">Todo el periodo</option>
+          <option value="7">Últimos 7 días</option>
+          <option value="30">Últimos 30 días</option>
+          <option value="90">Últimos 90 días</option>
+          <option value="mes">Último mes con datos</option>
+          <option value="personalizado">Personalizado…</option>
+        </select>
+      </div>
+      <div class="campo campo-fecha">
+        <label for="f-desde">Desde</label>
+        <input type="date" id="f-desde">
+      </div>
+      <div class="campo campo-fecha">
+        <label for="f-hasta">Hasta</label>
+        <input type="date" id="f-hasta">
+      </div>
+      <div class="campo">
+        <label for="f-ubicacion">Zona o tramo</label>
+        <select id="f-ubicacion"><option value="">Toda la ciudad</option></select>
+      </div>
+      <div class="campo">
+        <label for="f-luminaria">Luminaria</label>
+        <select id="f-luminaria"><option value="">Todas</option></select>
+      </div>
+      <div class="campo">
+        <label for="f-origen">Origen del dato</label>
+        <select id="f-origen">
+          <option value="">Físico y simulado</option>
+          <option value="FISICO">Solo físico (maqueta)</option>
+          <option value="SIMULADO">Solo simulado</option>
+        </select>
+      </div>
+      <button type="button" class="boton-texto" id="f-limpiar">Quitar filtros</button>
+    </form>
+
+    <main id="contenido" class="contenido" tabindex="-1">
+      <p class="cargando">Cargando el tablero…</p>
+    </main>
+    <footer class="pie">
+      <p id="pie-texto">NeoGrid · Curso de Big Data. Datos simulados y datos reales de la maqueta física.</p>
+    </footer>
+  </div>
+</div>
+<div class="tooltip" id="tooltip" role="status" aria-live="polite" hidden></div>
+<script src="/static/js/util.js?v=1" defer></script>
+<script src="/static/js/graficos.js?v=1" defer></script>
+<script src="/static/js/diagrama.js?v=1" defer></script>
+<script src="/static/js/vista_general.js?v=1" defer></script>
+<script src="/static/js/vista_operacion.js?v=1" defer></script>
+<script src="/static/js/vista_modelos.js?v=1" defer></script>
+<script src="/static/js/vista_explorador.js?v=1" defer></script>
+<script src="/static/js/app.js?v=1" defer></script>
+</body>
+</html>

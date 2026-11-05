@@ -1,0 +1,20 @@
+# Blueprint de Render: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: neogrid-alumbrado
+    runtime: python
+    plan: free
+    rootDir: dashboard
+    buildCommand: pip install -r requirements.txt && python scripts/descargar_datos.py
+    startCommand: gunicorn -w 1 --threads 4 -b 0.0.0.0:$PORT --timeout 120 app.main:app
+    healthCheckPath: /api/salud
+    autoDeployTrigger: commit
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: MODO_BD
+        value: sqlite
+      - key: DATOS_URL
+        sync: false
+      - key: CLAVE_INGESTA
+        generateValue: true

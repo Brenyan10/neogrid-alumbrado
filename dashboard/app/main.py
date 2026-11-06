@@ -104,7 +104,8 @@ def inicio():
 
 @app.get("/static/<path:ruta>")
 def estaticos(ruta):
-    return send_from_directory(STATIC, ruta, max_age=3600)
+    # max_age=0: el navegador revalida cada vez (respuesta 304 si no cambió), así un despliegue nuevo se ve al recargar.
+    return send_from_directory(STATIC, ruta, max_age=0)
 
 
 # ------------------------------------------------------------------ información y salud

@@ -76,6 +76,15 @@
     AHORRO: "Presencia en modo ahorro", ENCENDIDA_DIA: "Encendida de día (falla de LDR)", FALLA: "En falla", MANTENIMIENTO: "En mantenimiento" };
   NG.ESTADO_TXT = ESTADO_TXT;
 
+  /* Un tablero de la maqueta está "en vivo" si su última LECTURA (no el último envío del puente)
+     tiene menos de 2 minutos: edad del envío + antigüedad de la lectura cuando se envió. */
+  const LIMITE_VIVO_S = 120;
+  function edadLectura(vivo, t) {
+    return (vivo && vivo.edad_segundos || 0) + (t.segundos_desde_lectura == null ? 0 : t.segundos_desde_lectura);
+  }
+  function tableroFresco(vivo, t) { return edadLectura(vivo, t) <= LIMITE_VIVO_S; }
+  function hayVivoFresco(vivo) { return !!(vivo && vivo.tableros && vivo.tableros.some((t) => tableroFresco(vivo, t))); }
+
   function heroNoche(destino, datos, vivo) {
     const lums = datos.luminarias;
     const pos = posiciones(lums);
@@ -137,7 +146,7 @@
     function valoresVivo() {
       const r = {};
       (vivo && vivo.tableros || []).forEach((t) => {
-        if (vivo.edad_segundos !== undefined && vivo.edad_segundos > 120) return;
+        if (!tableroFresco(vivo, t)) return;   // lectura vieja: esos 8 postes quedan "sin datos recientes"
         const desde = t.tablero === "OESTE" ? 1 : 9;
         const est = t.estado === "DIA" ? "APAGADA" : t.estado === "PERSONA" ? (t.ahorro ? "AHORRO" : "PRESENCIA") : (t.brillo_pct <= 15 ? "MADRUGADA" : "NOCHE_BASE");
         for (let k = 0; k < 8; k++) r[desde + k] = [t.brillo_pct, est, t.pir ? 1 : 0, t.nivel_luz_lux, 60 * (t.brillo_pct || 0) / 100 + 1.5, "FISICO"];
@@ -152,8 +161,15 @@
       const vivos = enVivo ? valoresVivo() : {};
       let enc = 0, sumaB = 0, pot = 0, det = 0, n = 0;
       Object.entries(nodos).forEach(([id, nd]) => {
-        const v = vivos[id] || s.luminarias[id];
-        if (!v) { nd.nucleo.setAttribute("fill", "#2a3550"); nd.halo.setAttribute("r", 0); nd.marca.setAttribute("visibility", "hidden"); return; }
+        // En vivo, los 16 postes físicos muestran solo el dato real; nunca la simulación de esa noche.
+        const v = enVivo && Number(id) <= 16 ? vivos[id] : (vivos[id] || s.luminarias[id]);
+        if (!v) {
+          nd.nucleo.setAttribute("fill", "#2a3550"); nd.nucleo.setAttribute("stroke", "#5b6886"); nd.nucleo.setAttribute("stroke-dasharray", enVivo ? "2 2" : "");
+          nd.halo.setAttribute("r", 0); nd.marca.setAttribute("visibility", "hidden"); nd.datos = null;
+          nd.g.setAttribute("aria-label", `${nd.info.codigo}: sin datos recientes`);
+          return;
+        }
+        nd.nucleo.setAttribute("stroke-dasharray", "");
         const [brillo, estado, d, , p] = v;
         n++;
         det += d || 0; pot += p || 0;
@@ -176,7 +192,7 @@
       vPot.textContent = ""; vPot.append(NG.fmt.num(pot / 1000, 2), NG.el("small", { texto: "kW" }));
       vDet.textContent = ""; vDet.append(NG.fmt.num(det), NG.el("small", { texto: "en 15 min" }));
       rango.value = actual;
-      etiquetaVivo.textContent = enVivo ? "En vivo" : "";
+      etiquetaVivo.textContent = enVivo ? (hayVivoFresco(vivo) ? "En vivo" : "Sin datos recientes") : "";
     }
 
     Object.values(nodos).forEach((nd) => {
@@ -210,10 +226,13 @@
     const fechaInput = NG.el("input", { type: "date", value: datos.fecha, min: datos.extension.desde, max: datos.extension.hasta, "aria-label": "Noche a mostrar" });
     fechaInput.addEventListener("change", () => { if (fechaInput.value) NG.vistas.general.noche = fechaInput.value; NG.recargar(); });
     const botonVivo = NG.el("button", { type: "button", clase: "boton-noche", "aria-pressed": "false" }, "Maqueta en vivo");
-    const hayVivo = vivo && vivo.tableros && vivo.tableros.length && (vivo.edad_segundos === undefined || vivo.edad_segundos <= 120);
-    botonVivo.disabled = !hayVivo;
-    botonVivo.title = hayVivo ? "Mostrar el estado actual de los 16 postes físicos" : "La maqueta no está enviando datos en este momento";
-    botonVivo.addEventListener("click", () => { enVivo = !enVivo; botonVivo.setAttribute("aria-pressed", String(enVivo)); pintar(actual); });
+    function estadoBoton() {
+      const hay = hayVivoFresco(vivo);
+      botonVivo.disabled = !hay && !enVivo;
+      botonVivo.title = hay ? "Mostrar el estado actual de los 16 postes físicos" : "La maqueta no está enviando lecturas recientes";
+    }
+    estadoBoton();
+    botonVivo.addEventListener("click", () => { enVivo = !enVivo; botonVivo.setAttribute("aria-pressed", String(enVivo)); estadoBoton(); pintar(actual); });
 
     const leyenda = NG.el("ul", { clase: "noche-leyenda" },
       NG.el("li", null, (() => { const s = NG.svg("svg", { width: 26, height: 18, viewBox: "-13 -9 26 18" }); s.append(NG.svg("circle", { r: 9, fill: "url(#halo)" }), NG.svg("circle", { r: 4.5, fill: "hsl(40, 95%, 80%)" })); return s; })(), "Encendida (el halo crece con el brillo)"),
@@ -231,6 +250,15 @@
       NG.el("div", { clase: "noche-control" }, botonPlay, rango, fechaInput, botonVivo),
       leyenda);
     pintar(actual);
+    // El panel "Maqueta en vivo" consulta cada 10 s y entrega aquí el estado nuevo.
+    return {
+      actualizarVivo(nuevo) {
+        if (!nuevo) return;
+        vivo = nuevo;
+        estadoBoton();
+        if (enVivo) pintar(actual);
+      },
+    };
   }
 
   // ------------------------------------------------------------------ maqueta en vivo
@@ -241,13 +269,21 @@
         "Cuando el computador de la maqueta ejecuta el puente (puente_nube.py), aquí aparece cada 10 segundos el estado de los tableros oeste y este."));
       return;
     }
-    const viejo = vivo.edad_segundos !== undefined && vivo.edad_segundos > 120;
-    panel.cuerpo.append(NG.el("p", { clase: "nota", texto: (viejo ? "Último dato recibido hace " + NG.fmt.num(vivo.edad_segundos / 60, 0) + " min (la maqueta puede estar apagada). " : "Actualizado hace " + NG.fmt.num(vivo.edad_segundos || 0) + " s. ") + "Fuente: " + vivo.fuente + "." }));
+    const envioViejo = vivo.edad_segundos !== undefined && vivo.edad_segundos > LIMITE_VIVO_S;
+    const algunoFresco = hayVivoFresco(vivo);
+    const edadMin = Math.min(...vivo.tableros.map((t) => edadLectura(vivo, t)));
+    const fmtEdad = (s) => s < 120 ? NG.fmt.num(s, 0) + " s" : s < 7200 ? NG.fmt.num(s / 60, 0) + " min" : NG.fmt.num(s / 3600, 1) + " h";
+    const nota = envioViejo ? "El puente no envía datos desde hace " + fmtEdad(vivo.edad_segundos) + " (el computador de la maqueta puede estar apagado). "
+      : !algunoFresco ? "El puente está conectado, pero la última lectura de los ESP32 es de hace " + fmtEdad(edadMin) + ": revise que la maqueta esté encendida y en la misma red. "
+      : "Actualizado hace " + NG.fmt.num(vivo.edad_segundos || 0) + " s. ";
+    panel.cuerpo.append(NG.el("p", { clase: "nota", texto: nota + "Fuente: " + vivo.fuente + "." }));
     const tableros = NG.el("div", { clase: "vivo-tableros" });
     vivo.tableros.forEach((t) => {
       const enLinea = (t.conexion || "").toLowerCase() === "en_linea";
+      const fresco = tableroFresco(vivo, t);
       tableros.append(NG.el("div", { clase: "tablero-vivo" },
-        NG.el("h3", null, "Tablero " + (t.tablero === "OESTE" ? "oeste" : "este"), NG.etiqueta(enLinea ? "En línea" : "Sin conexión", enLinea ? "bueno" : "critico")),
+        NG.el("h3", null, "Tablero " + (t.tablero === "OESTE" ? "oeste" : "este"),
+          !fresco ? NG.etiqueta("Sin datos recientes", "aviso") : NG.etiqueta(enLinea ? "En línea" : "Sin conexión", enLinea ? "bueno" : "critico")),
         NG.el("dl", null,
           NG.el("dt", { texto: "Estado" }), NG.el("dd", { texto: t.estado === "PERSONA" ? "Persona detectada" : t.estado === "NOCHE" ? "Noche" : t.estado === "DIA" ? "Día" : "—" }),
           NG.el("dt", { texto: "Brillo de los 8 postes" }), NG.el("dd", { texto: NG.fmt.num(t.brillo_pct, 0) + " %" }),
@@ -278,7 +314,7 @@
       ]);
       const hero = NG.el("section", { clase: "noche", "aria-label": "La red de noche" });
       c.append(hero);
-      heroNoche(hero, noche, vivo);
+      const plano = heroNoche(hero, noche, vivo);
 
       const k = res.kpi;
       c.append(NG.cifras([
@@ -311,7 +347,11 @@
       panelVivo(pVivo, vivo);
       this._vivo = setInterval(async () => {
         if (!document.body.contains(pVivo.raiz)) { clearInterval(this._vivo); return; }
-        try { panelVivo(pVivo, await NG.api("maqueta/estado", null, { signal: undefined })); } catch (e) { /* se reintenta en 10 s */ }
+        try {
+          const nuevo = await NG.api("maqueta/estado", null, { signal: undefined });
+          panelVivo(pVivo, nuevo);
+          plano.actualizarVivo(nuevo);
+        } catch (e) { /* se reintenta en 10 s */ }
       }, 10000);
 
       const fila2 = NG.el("div", { clase: "rejilla rejilla-2" });

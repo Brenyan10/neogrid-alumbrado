@@ -352,7 +352,7 @@
           panelVivo(pVivo, nuevo);
           plano.actualizarVivo(nuevo);
         } catch (e) { /* se reintenta en 10 s */ }
-      }, 10000);
+      }, 3000);   // cada 3 s: el estado de la maqueta se ve casi al instante
 
       const fila2 = NG.el("div", { clase: "rejilla rejilla-2" });
       c.append(fila2);

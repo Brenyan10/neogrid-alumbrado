@@ -11,6 +11,10 @@ el puente de la maqueta pueda cargar datos nuevos sin abrir Visual Studio. Las d
 escriben en las mismas tablas de control. Así se pueden comparar en el Monitor ETL del
 tablero web (columna *herramienta*: `SSIS` o `TSQL`).
 
+> **Versión actual (con eventos).** El paquete tiene dos flujos de datos: `DFT_HechosOperacion` y
+> `DFT_Eventos` (sección 5b). Antes de abrirlo deben estar ejecutados `10_usuarios_procesos.sql`,
+> `11_dw_eventos.sql` y `06_etl_procedimientos.sql`, porque Visual Studio valida las consultas al abrir.
+>
 > **Paquete ya construido.** En esta carpeta está `ETL_NeoGrid.dtsx`, armado exactamente como
 > describen las secciones 2 a 5. Para usarlo: cree el proyecto (sección 1, paso 1), en el
 > *Explorador de soluciones* haga clic derecho en **Paquetes SSIS → Agregar paquete existente…**,
@@ -67,13 +71,20 @@ Panel *Connection Managers* → clic derecho → *New OLE DB Connection* → *Ne
 | `FilasInsertadas` | Int32 | 0 | |
 | `FilasRechazadas` | Int32 | 0 | |
 | `FilasOmitidas` | Int32 | 0 | |
+| `EventoMin` | Int32 | 0 | |
+| `EventoMax` | Int32 | 0 | |
+| `ConsultaEventos` | String | | `"SELECT * FROM dbo.fn_etl_extraccion_eventos(" + (DT_WSTR,12)@[User::EventoMin] + ", " + (DT_WSTR,12)@[User::EventoMax] + ")"` |
+| `EventosLeidos` | Int32 | 0 | |
+| `EventosInsertados` | Int32 | 0 | |
+| `EventosRechazados` | Int32 | 0 | |
+| `EventosOmitidos` | Int32 | 0 | |
 
-En `ConsultaExtraccion` marque **EvaluateAsExpression = True**.
+En `ConsultaExtraccion` y `ConsultaEventos` marque **EvaluateAsExpression = True**.
 
 ## 4. Flujo de control (orden de ejecución)
 
 ```
-SQL_IniciarEjecucion → SQL_CargarDimensiones → DFT_HechosOperacion
+SQL_IniciarEjecucion → SQL_CargarDimensiones → DFT_HechosOperacion → DFT_Eventos
       → SQL_HechosSecundarios → SQL_Agregados → SQL_Finalizar
 Controlador de eventos OnError (paquete) → SQL_RegistrarError
 ```
@@ -82,11 +93,11 @@ Una todas las tareas con restricciones de precedencia **Success** (flecha verde)
 
 | Tarea (Execute SQL Task) | Conexión | SQLStatement | Parámetros (*Parameter Mapping*) | ResultSet |
 |---|---|---|---|---|
-| `SQL_IniciarEjecucion` | CM_DW | `EXEC dbo.sp_etl_iniciar @herramienta = 'SSIS', @paquete = N'ETL_NeoGrid.dtsx', @devolver_resultado = 1;` | — | **Single row**: `ejecucion_id` → `User::EjecucionId`, `watermark_min` → `User::WatermarkMin`, `watermark_max` → `User::WatermarkMax` |
+| `SQL_IniciarEjecucion` | CM_DW | `EXEC dbo.sp_etl_iniciar @herramienta = 'SSIS', @paquete = N'ETL_NeoGrid.dtsx', @devolver_resultado = 1;` | — | **Single row**: `ejecucion_id` → `User::EjecucionId`, `watermark_min` → `User::WatermarkMin`, `watermark_max` → `User::WatermarkMax`, `evento_min` → `User::EventoMin`, `evento_max` → `User::EventoMax` |
 | `SQL_CargarDimensiones` | CM_DW | `EXEC dbo.sp_etl_cargar_dimensiones @ejecucion_id = ?;` | `User::EjecucionId`, Input, LONG, nombre `0` | None |
 | `SQL_HechosSecundarios` | CM_DW | `EXEC dbo.sp_etl_cargar_hechos_secundarios @ejecucion_id = ?;` | `User::EjecucionId`, Input, LONG, `0` | None |
 | `SQL_Agregados` | CM_DW | `EXEC dbo.sp_etl_actualizar_agregados @ejecucion_id = ?;` | `User::EjecucionId`, Input, LONG, `0` | None |
-| `SQL_Finalizar` | CM_DW | `EXEC dbo.sp_etl_finalizar @ejecucion_id = ?, @filas_leidas = ?, @filas_omitidas = ?;` | `0` = EjecucionId, `1` = FilasLeidas, `2` = FilasOmitidas (todos LONG) | None |
+| `SQL_Finalizar` | CM_DW | `EXEC dbo.sp_etl_finalizar @ejecucion_id = ?, @filas_leidas = ?, @filas_omitidas = ?, @eventos_leidos = ?, @eventos_omitidos = ?;` | `0` = EjecucionId, `1` = FilasLeidas, `2` = FilasOmitidas, `3` = EventosLeidos, `4` = EventosOmitidos (todos LONG) | None |
 
 **Manejo de errores** — pestaña *Event Handlers*, ejecutable `ETL_NeoGrid`, evento **OnError**:
 una Execute SQL Task `SQL_RegistrarError` (CM_DW):
@@ -271,6 +282,36 @@ Deje solo las columnas `medicion_id`, `luminaria_id`, `fecha_hora`, `brillo_pct`
 **RC_Rechazadas** (Row Count → `User::FilasRechazadas`) → **OLE_Destino_Rechazos** (OLE DB Destination, fast load,
 `dbo.etl_rechazo`): `ejecucion_id` → ejecucion_id, `medicion_id` → medicion_id,
 `motivo_validacion` → motivo, `detalle` → detalle (rechazo_id y fecha_rechazo se ignoran).
+
+## 5b. Flujo de datos `DFT_Eventos`
+
+Carga `fact_evento_operativo` (grano: un evento operativo). Usa los mismos patrones que
+`DFT_HechosOperacion`:
+
+```
+OLE_Origen_Eventos (CM_Relacional, variable ConsultaEventos) → RC_Leidos (EventosLeidos)
+ → DC_Motivo → CS_Validacion ──Rechazados──────────────────────────────┐
+                 └─Validos → DC_Homologacion → DC_Atributos             │
+                   → LKP_Tiempo → LKP_Hora → LKP_Luminaria → LKP_Ubicacion
+                   → LKP_TipoEvento → LKP_Proceso → LKP_Usuario → LKP_Origen
+                   → LKP_EstadoAnterior → LKP_EstadoNuevo               │
+                   → CS_Claves ──SinDimension→ DC_MotivoClave ──────────┤
+                        └─ConClaves → LKP_YaCargado                     │
+                              ├─coincide → RC_Omitidos (ya cargados)    │
+                              └─no coincide → RC_Insertados → OLE_Destino_Evento
+UNION_Rechazos ← (Rechazados + SinDimension) → DC_Detalle → RC_Rechazados → OLE_Destino_Rechazos
+```
+
+| Componente | Regla |
+|---|---|
+| `DC_Motivo` | `DUPLICADO` (mismo poste/tablero, tipo, segundo y detalle: `orden_duplicado > 1`), `FECHA_INVALIDA` (antes de 2026 o futura), `BRILLO_FUERA_DE_RANGO` (brillo anterior o nuevo fuera de 0–100) |
+| `DC_Homologacion` | **Homologación de categorías.** La simulación describe los cambios con estados y brillos numéricos; la maqueta con textos del firmware (`DIA -> NOCHE`, `NOCHE -> PERSONA`, `dia -> noche` en minúscula…). `accion_homologada` las lleva a un vocabulario único: ENCENDIDO, APAGADO, SUBE_BRILLO, BAJA_BRILLO, AJUSTE_BRILLO, AHORRO, PRESENCIA, ANOCHECER, AMANECER, FALLA_INICIO, FALLA_FIN, MANT_INICIO, MANT_FIN, CONEXION, DESCONEXION. `detalle_homologado` quita espacios y cambia el detalle nulo por «Sin detalle». |
+| `DC_Atributos` | Atributos generados: `variacion_brillo_pct` (nuevo − anterior, nulo si falta uno), `es_critico` (falla detectada o desconexión), `cantidad_eventos` = 1, `ejecucion_id` |
+| Lookups | Claves sustitutas de 10 dimensiones; los eventos de tablero sin luminaria ni estado van al miembro 0 («desconocido»), así ninguna clave queda nula |
+| `LKP_YaCargado` | `SELECT evento_id FROM dbo.fact_evento_operativo`, *Redirect rows to no match output*: lo que ya está se cuenta como omitido |
+| `OLE_Destino_Rechazos` | `ejecucion_id`, `evento_id`, `motivo`, `detalle` en `dbo.etl_rechazo` (la columna `medicion_id` queda nula) |
+
+La misma lógica está en T-SQL en `dbo.sp_etl_cargar_eventos_tsql`.
 
 ## 6. Ejecución y evidencias
 

@@ -4,8 +4,8 @@
    Plan de pruebas automático: verifica volumen, integridad, coherencia de
    la simulación y coherencia entre el modelo relacional y el DW.
    Cada prueba devuelve PASA o REVISAR con el valor esperado y el obtenido.
-   Ejecutar DESPUÉS de cargar los datos (03) y del ETL (SSIS o T-SQL).
-   Tarda aproximadamente 1 minuto.
+   Ejecutar DESPUÉS de cargar los datos (03 y 10) y del ETL (SSIS o T-SQL).
+   Tarda aproximadamente 1 minuto. 42 pruebas (20 del relacional, 22 del DW).
    ===================================================================== */
 USE NeoGridDW;
 GO
@@ -139,23 +139,61 @@ WHERE NOT EXISTS (SELECT 1 FROM NeoGridRelacional.dbo.evento_operativo e WHERE e
 INSERT #val VALUES (N'Relacional', N'R16 · Fallas sin evento FALLA_DETECTADA', N'0',
                     CONCAT(@x, N''), CASE WHEN @x = 0 THEN 1 ELSE 0 END);
 
+-- R17 · Cada proceso tiene exactamente un responsable
+SELECT @x = COUNT(*) FROM NeoGridRelacional.dbo.proceso p
+WHERE (SELECT COUNT(*) FROM NeoGridRelacional.dbo.usuario_proceso up
+       WHERE up.proceso_id = p.proceso_id AND up.responsabilidad = 'RESPONSABLE') = 1;
+SELECT @y = COUNT(*) FROM NeoGridRelacional.dbo.proceso;
+INSERT #val VALUES (N'Relacional', N'R17 · Procesos con un único usuario RESPONSABLE', CONCAT(@y, N' de ', @y),
+                    CONCAT(@x, N' de ', @y), CASE WHEN @x = @y AND @y = 6 THEN 1 ELSE 0 END);
+
+-- R18 · Cada tipo de evento pertenece al proceso que corresponde a su categoría
+SELECT @x = COUNT(*) FROM NeoGridRelacional.dbo.tipo_evento te
+JOIN NeoGridRelacional.dbo.proceso p ON p.proceso_id = te.proceso_id
+WHERE p.tipo_operacion <> CASE te.categoria WHEN 'OPERACION' THEN 'CONTROL' WHEN 'SENSOR' THEN 'MONITOREO'
+                                            WHEN 'COMUNICACION' THEN 'MONITOREO' WHEN 'FALLA' THEN 'ATENCION'
+                                            WHEN 'MANTENIMIENTO' THEN 'GESTION' END;
+INSERT #val VALUES (N'Relacional', N'R18 · Tipos de evento asignados a un proceso que no corresponde', N'0',
+                    CONCAT(@x, N''), CASE WHEN @x = 0 THEN 1 ELSE 0 END);
+
+-- R19 · Las fallas simuladas las registra el operador del turno de detección
+SELECT @x = COUNT(*) FROM NeoGridRelacional.dbo.falla f
+JOIN NeoGridRelacional.dbo.usuario u ON u.usuario_id = f.usuario_registra_id
+JOIN NeoGridRelacional.dbo.rol r ON r.rol_id = u.rol_id
+WHERE f.origen_id = 1
+  AND (r.codigo <> 'OPERADOR'
+       OR (DATEPART(HOUR, f.fecha_deteccion) BETWEEN 6 AND 17 AND u.login <> 'agomez')
+       OR (DATEPART(HOUR, f.fecha_deteccion) NOT BETWEEN 6 AND 17 AND u.login <> 'jcastro'));
+INSERT #val VALUES (N'Relacional', N'R19 · Fallas simuladas registradas por un usuario que no es el operador del turno', N'0',
+                    CONCAT(@x, N''), CASE WHEN @x = 0 THEN 1 ELSE 0 END);
+
+-- R20 · Todo técnico que ejecuta mantenimientos es un usuario del sistema
+SELECT @x = COUNT(DISTINCT m.tecnico_id) FROM NeoGridRelacional.dbo.mantenimiento m
+WHERE m.tecnico_id IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM NeoGridRelacional.dbo.usuario u WHERE u.tecnico_id = m.tecnico_id);
+INSERT #val VALUES (N'Relacional', N'R20 · Técnicos con mantenimientos que no son usuarios', N'0',
+                    CONCAT(@x, N''), CASE WHEN @x = 0 THEN 1 ELSE 0 END);
+
 /* ============================ MULTIDIMENSIONAL ============================ */
 
--- D1 · Dimensiones con el número de filas esperado
+-- D1 · Dimensiones con el número de filas esperado (las que tienen miembro desconocido cuentan una fila más)
 SELECT @x =
-      CASE WHEN (SELECT COUNT(*) FROM dbo.dim_luminaria) = 64 THEN 1 ELSE 0 END
+      CASE WHEN (SELECT COUNT(*) FROM dbo.dim_luminaria) = 65 THEN 1 ELSE 0 END
     + CASE WHEN (SELECT COUNT(*) FROM dbo.dim_ubicacion) = 13 THEN 1 ELSE 0 END
     + CASE WHEN (SELECT COUNT(*) FROM dbo.dim_sensor) = 46 THEN 1 ELSE 0 END
-    + CASE WHEN (SELECT COUNT(*) FROM dbo.dim_estado_operativo) = 8 THEN 1 ELSE 0 END
+    + CASE WHEN (SELECT COUNT(*) FROM dbo.dim_estado_operativo) = 9 THEN 1 ELSE 0 END
     + CASE WHEN (SELECT COUNT(*) FROM dbo.dim_origen) = 4 THEN 1 ELSE 0 END
     + CASE WHEN (SELECT COUNT(*) FROM dbo.dim_tipo_falla) = 7 THEN 1 ELSE 0 END
     + CASE WHEN (SELECT COUNT(*) FROM dbo.dim_tipo_mantenimiento) = 7 THEN 1 ELSE 0 END
     + CASE WHEN (SELECT COUNT(*) FROM dbo.dim_tecnico) = 6 THEN 1 ELSE 0 END
     + CASE WHEN (SELECT COUNT(*) FROM dbo.dim_tiempo) = 731 THEN 1 ELSE 0 END
     + CASE WHEN (SELECT COUNT(*) FROM dbo.dim_hora) = 96 THEN 1 ELSE 0 END
-    + CASE WHEN (SELECT COUNT(*) FROM dbo.dim_calidad_dato) = 4 THEN 1 ELSE 0 END;
-INSERT #val VALUES (N'DW', N'D1 · Dimensiones con las filas esperadas (luminaria 64, sensor 46, tiempo 731…)', N'11 de 11',
-                    CONCAT(@x, N' de 11'), CASE WHEN @x = 11 THEN 1 ELSE 0 END);
+    + CASE WHEN (SELECT COUNT(*) FROM dbo.dim_calidad_dato) = 4 THEN 1 ELSE 0 END
+    + CASE WHEN (SELECT COUNT(*) FROM dbo.dim_tipo_evento) = 13 THEN 1 ELSE 0 END
+    + CASE WHEN (SELECT COUNT(*) FROM dbo.dim_proceso) = 7 THEN 1 ELSE 0 END
+    + CASE WHEN (SELECT COUNT(*) FROM dbo.dim_usuario) = 12 THEN 1 ELSE 0 END;
+INSERT #val VALUES (N'DW', N'D1 · Dimensiones con las filas esperadas (luminaria 64+1, sensor 46, tiempo 731, usuario 11+1…)', N'14 de 14',
+                    CONCAT(@x, N' de 14'), CASE WHEN @x = 14 THEN 1 ELSE 0 END);
 
 -- D2 · Hecho principal: el millón de mediciones simuladas está cargado
 SELECT @x = COUNT_BIG(*) FROM dbo.fact_operacion_luminaria f
@@ -276,6 +314,51 @@ SELECT @b = SUM(energia_kwh) FROM dbo.fact_consumo_diario;
 INSERT #val VALUES (N'Ambos', N'D17 · kWh totales relacional vs DW (diferencia por la regla de imputación, < 0,5 %)',
                     FORMAT(@a, 'N2', 'es-CO'), FORMAT(@b, 'N2', 'es-CO'),
                     CASE WHEN @a > 0 AND ABS(@a - @b) / @a < 0.005 THEN 1 ELSE 0 END);
+
+-- D18 · Completitud de eventos: todo evento procesado está en el hecho o en rechazos
+DECLARE @wme BIGINT = (SELECT ultimo_medicion_id FROM dbo.etl_control WHERE proceso = 'FACT_EVENTO');
+SELECT @x = COUNT(*) FROM (
+    SELECT evento_id FROM src.evento_operativo WHERE evento_id <= @wme
+    EXCEPT SELECT evento_id FROM dbo.fact_evento_operativo
+    EXCEPT SELECT evento_id FROM dbo.etl_rechazo WHERE evento_id IS NOT NULL) q;
+SELECT @y = COUNT(*) FROM src.evento_operativo WHERE evento_id <= @wme;
+INSERT #val VALUES (N'DW', CONCAT(N'D18 · Eventos procesados (', FORMAT(@y, 'N0', 'es-CO'), N') que no están ni en el hecho ni en rechazos'), N'0',
+                    FORMAT(@x, 'N0', 'es-CO'), CASE WHEN @x = 0 AND @y > 0 THEN 1 ELSE 0 END);
+
+-- D19 · Linaje y grano del hecho de eventos (un evento_id por fila, todos existen en el relacional)
+SELECT @x = (SELECT COUNT(*) FROM (SELECT evento_id FROM dbo.fact_evento_operativo GROUP BY evento_id HAVING COUNT(*) > 1) q)
+          + (SELECT COUNT(*) FROM (SELECT evento_id FROM dbo.fact_evento_operativo EXCEPT SELECT evento_id FROM src.evento_operativo) q);
+INSERT #val VALUES (N'DW', N'D19 · Eventos repetidos en el hecho o sin evento de origen', N'0',
+                    CONCAT(@x, N''), CASE WHEN @x = 0 THEN 1 ELSE 0 END);
+
+-- D20 · Homologación: todo evento cargado tiene una acción estándar coherente con su tipo
+SELECT @x = COUNT(*) FROM dbo.fact_evento_operativo f
+JOIN dbo.dim_tipo_evento t ON t.tipo_evento_key = f.tipo_evento_key
+WHERE f.accion_homologada = N'OTRO'
+   OR (t.codigo = 'CAMBIO_BRILLO' AND f.accion_homologada NOT IN (N'SUBE_BRILLO', N'BAJA_BRILLO', N'AJUSTE_BRILLO'))
+   OR (t.codigo = 'CAMBIO_LUZ_AMBIENTE' AND f.accion_homologada NOT IN (N'ANOCHECER', N'AMANECER', N'CAMBIO_LUZ'))
+   OR (t.codigo = 'CAMBIO_BRILLO' AND f.variacion_brillo_pct > 0 AND f.accion_homologada <> N'SUBE_BRILLO')
+   OR (t.codigo = 'CAMBIO_BRILLO' AND f.variacion_brillo_pct < 0 AND f.accion_homologada <> N'BAJA_BRILLO');
+INSERT #val VALUES (N'DW', N'D20 · Eventos con acción homologada incoherente con su tipo o su variación de brillo', N'0',
+                    FORMAT(@x, 'N0', 'es-CO'), CASE WHEN @x = 0 THEN 1 ELSE 0 END);
+
+-- D21 · El usuario de cada FALLA_DETECTADA en el DW es quien registró la falla en el relacional
+SELECT @x = COUNT(*) FROM dbo.fact_evento_operativo f
+JOIN dbo.dim_tipo_evento t ON t.tipo_evento_key = f.tipo_evento_key
+JOIN dbo.dim_usuario u ON u.usuario_key = f.usuario_key
+JOIN src.falla fa ON fa.falla_id = f.falla_id
+WHERE t.codigo = 'FALLA_DETECTADA' AND u.usuario_id <> fa.usuario_registra_id;
+SELECT @y = COUNT(*) FROM dbo.fact_evento_operativo f
+JOIN dbo.dim_tipo_evento t ON t.tipo_evento_key = f.tipo_evento_key WHERE t.codigo = 'FALLA_DETECTADA';
+INSERT #val VALUES (N'Ambos', CONCAT(N'D21 · Detecciones de falla (', @y, N') con usuario distinto al que registró la falla'), N'0',
+                    CONCAT(@x, N''), CASE WHEN @x = 0 AND @y > 0 THEN 1 ELSE 0 END);
+
+-- D22 · Última ejecución: eventos leídos = insertados + rechazados + omitidos
+SELECT TOP (1) @x = CASE WHEN eventos_leidos = eventos_insertados + eventos_rechazados + eventos_omitidos THEN 1 ELSE 0 END,
+               @y = ejecucion_id
+FROM dbo.etl_ejecucion ORDER BY ejecucion_id DESC;
+INSERT #val VALUES (N'DW', N'D22 · Última ejecución ETL: eventos leídos = insertados + rechazados + omitidos', N'1',
+                    CONCAT(ISNULL(@x, 0), N' (ejecución ', ISNULL(@y, 0), N')'), CASE WHEN @x = 1 THEN 1 ELSE 0 END);
 
 /* =============================== RESULTADO =============================== */
 SELECT n AS [#], modelo, prueba, esperado, obtenido,

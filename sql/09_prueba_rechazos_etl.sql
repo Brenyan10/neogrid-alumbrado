@@ -21,6 +21,18 @@
 
    Esperado: leídas 12 · insertadas 3 · rechazadas 9 · imputadas 1.
 
+   Además inserta 5 EVENTOS de prueba (origen_id = 4) para el flujo DFT_Eventos:
+
+     #  caso                                   resultado esperado
+     1  cambio de luz de zona, sin luminaria,  INSERTADO (luminaria = miembro 0,
+        detalle "  prueba: dia -> noche  "      acción homologada ANOCHECER, detalle sin espacios)
+     2  cambio de brillo 15 % -> 52,6 %         INSERTADO (acción SUBE_BRILLO, variación +37,6)
+     3  mismo evento que el 2                   RECHAZO DUPLICADO
+     4  brillo nuevo 150 %                      RECHAZO BRILLO_FUERA_DE_RANGO
+     5  fecha futura (2031)                     RECHAZO FECHA_INVALIDA
+
+   Esperado eventos: leídos 5 · insertados 2 · rechazados 3.
+
    Uso:
      · Prueba con el ETL T-SQL: ejecutar el archivo completo (F5).
      · Prueba con SSIS: ejecutar la PARTE 1, luego el paquete ETL_NeoGrid.dtsx
@@ -40,6 +52,9 @@ BEGIN
 
     IF OBJECT_ID('tempdb..#p') IS NOT NULL DROP TABLE #p;
     SELECT medicion_id INTO #p FROM src.medicion WHERE origen_id = 4;
+    IF OBJECT_ID('tempdb..#pe') IS NOT NULL DROP TABLE #pe;
+    SELECT evento_id INTO #pe FROM src.evento_operativo WHERE origen_id = 4;
+    DECLARE @eventos INT;
 
     SELECT @desde = MIN(f.tiempo_key), @hasta = MAX(f.tiempo_key)
     FROM dbo.fact_operacion_luminaria f JOIN #p p ON p.medicion_id = f.medicion_id;
@@ -51,10 +66,13 @@ BEGIN
         EXEC dbo.sp_etl_actualizar_agregados @ejecucion_id = NULL, @tiempo_key_desde = @desde, @tiempo_key_hasta = @hasta;
     DELETE m FROM src.medicion m JOIN #p p ON p.medicion_id = m.medicion_id;
     SET @mediciones = @@ROWCOUNT;
+    DELETE f FROM dbo.fact_evento_operativo f JOIN #pe p ON p.evento_id = f.evento_id;
+    DELETE e FROM src.evento_operativo e JOIN #pe p ON p.evento_id = e.evento_id;
+    SET @eventos = @@ROWCOUNT;
     COMMIT TRANSACTION;
 
     /* El historial (etl_ejecucion, etl_paso, etl_rechazo) se conserva como evidencia. */
-    SELECT @mediciones AS mediciones_prueba_borradas, @hechos AS hechos_prueba_borrados;
+    SELECT @mediciones AS mediciones_prueba_borradas, @hechos AS hechos_prueba_borrados, @eventos AS eventos_prueba_borrados;
 END
 GO
 
@@ -64,7 +82,7 @@ GO
 USE NeoGridRelacional;
 GO
 SET NOCOUNT ON;
-IF EXISTS (SELECT 1 FROM dbo.medicion WHERE origen_id = 4)
+IF EXISTS (SELECT 1 FROM dbo.medicion WHERE origen_id = 4) OR EXISTS (SELECT 1 FROM dbo.evento_operativo WHERE origen_id = 4)
 BEGIN
     RAISERROR(N'Ya hay mediciones de prueba. Ejecute primero: EXEC NeoGridDW.dbo.sp_etl_limpiar_prueba;', 16, 1);
     RETURN;
@@ -90,6 +108,21 @@ VALUES
 
 SELECT medicion_id, fecha_hora, brillo_pct, tension_v, nivel_luz_lux, potencia_w
 FROM dbo.medicion WHERE origen_id = 4 ORDER BY medicion_id;
+
+/* 5 eventos de prueba en la misma luminaria y su tramo */
+DECLARE @ubi SMALLINT = (SELECT ubicacion_id FROM dbo.luminaria WHERE luminaria_id = 17);
+INSERT INTO dbo.evento_operativo
+    (luminaria_id, ubicacion_id, tipo_evento_id, origen_id, fecha_hora, estado_anterior_id, estado_nuevo_id,
+     brillo_anterior, brillo_nuevo, falla_id, mantenimiento_id, detalle)
+VALUES
+ (NULL, @ubi, 5, 4, '2026-10-20T03:05:00', NULL, NULL, NULL, NULL,  NULL, NULL, N'  prueba: dia -> noche  '),  -- 1 sin luminaria
+ (17,   @ubi, 3, 4, '2026-10-20T03:30:00', 3,    4,    15.0, 52.6,  NULL, NULL, NULL),                         -- 2 correcto
+ (17,   @ubi, 3, 4, '2026-10-20T03:30:00', 3,    4,    15.0, 52.6,  NULL, NULL, NULL),                         -- 3 duplicado del 2
+ (17,   @ubi, 3, 4, '2026-10-20T03:50:00', 3,    4,    15.0, 150.0, NULL, NULL, NULL),                         -- 4 brillo 150 %
+ (17,   @ubi, 3, 4, '2031-01-01T00:00:00', 3,    4,    15.0, 52.6,  NULL, NULL, NULL);                         -- 5 fecha futura
+
+SELECT evento_id, luminaria_id, tipo_evento_id, fecha_hora, brillo_anterior, brillo_nuevo, detalle
+FROM dbo.evento_operativo WHERE origen_id = 4 ORDER BY evento_id;
 GO
 
 /* =============================== PARTE 2 ================================
@@ -143,7 +176,8 @@ FROM esperado e JOIN obtenido o ON o.concepto = e.concepto;
 
 /* Registro de la ejecución que procesó la prueba */
 SELECT TOP (1) e.ejecucion_id, e.herramienta, e.estado, e.inicio, e.fin, e.filas_leidas, e.filas_insertadas,
-       e.filas_rechazadas, e.filas_omitidas, e.filas_imputadas, e.mensaje
+       e.filas_rechazadas, e.filas_omitidas, e.filas_imputadas, e.eventos_leidos, e.eventos_insertados,
+       e.eventos_rechazados, e.eventos_omitidos, e.mensaje
 FROM dbo.etl_ejecucion e
 WHERE EXISTS (SELECT 1 FROM dbo.etl_rechazo r JOIN #prueba p ON p.medicion_id = r.medicion_id WHERE r.ejecucion_id = e.ejecucion_id)
 ORDER BY e.ejecucion_id DESC;
@@ -153,5 +187,39 @@ FROM dbo.etl_paso p
 WHERE p.ejecucion_id = (SELECT MAX(r.ejecucion_id) FROM dbo.etl_rechazo r JOIN #prueba x ON x.medicion_id = r.medicion_id)
 ORDER BY p.paso_id;
 
-/* Re-ejecutar el ETL no debe duplicar nada: la marca de agua ya pasó estas filas. */
+/* ----------------------------- Eventos de prueba ----------------------------- */
+IF OBJECT_ID('tempdb..#prueba_ev') IS NOT NULL DROP TABLE #prueba_ev;
+SELECT ROW_NUMBER() OVER (ORDER BY e.evento_id) AS caso, e.evento_id, e.luminaria_id, e.fecha_hora, e.brillo_nuevo,
+       CASE WHEN f.evento_id IS NOT NULL THEN 'INSERTADO' WHEN r.evento_id IS NOT NULL THEN 'RECHAZADO' ELSE 'SIN PROCESAR' END AS resultado,
+       r.motivo, f.accion_homologada, f.detalle AS detalle_en_dw, dl.codigo AS luminaria_en_dw, f.variacion_brillo_pct
+INTO #prueba_ev
+FROM src.evento_operativo e
+LEFT JOIN dbo.fact_evento_operativo f ON f.evento_id = e.evento_id
+LEFT JOIN dbo.dim_luminaria dl ON dl.luminaria_key = f.luminaria_key
+OUTER APPLY (SELECT TOP (1) x.evento_id, x.motivo FROM dbo.etl_rechazo x
+             WHERE x.evento_id = e.evento_id ORDER BY x.rechazo_id DESC) r
+WHERE e.origen_id = 4;
+
+SELECT * FROM #prueba_ev ORDER BY caso;
+
+;WITH esperado AS (
+    SELECT v.concepto, v.valor FROM (VALUES
+        (N'Eventos leídos', 5), (N'Eventos insertados', 2), (N'Eventos rechazados', 3),
+        (N'Evento DUPLICADO', 1), (N'Evento BRILLO_FUERA_DE_RANGO', 1), (N'Evento FECHA_INVALIDA', 1),
+        (N'Homologado ANOCHECER', 1), (N'Homologado SUBE_BRILLO', 1)) v (concepto, valor)
+), obtenido AS (
+    SELECT N'Eventos leídos' AS concepto, COUNT(*) AS valor FROM #prueba_ev WHERE resultado <> 'SIN PROCESAR'
+    UNION ALL SELECT N'Eventos insertados', COUNT(*) FROM #prueba_ev WHERE resultado = 'INSERTADO'
+    UNION ALL SELECT N'Eventos rechazados', COUNT(*) FROM #prueba_ev WHERE resultado = 'RECHAZADO'
+    UNION ALL SELECT N'Evento DUPLICADO', COUNT(*) FROM #prueba_ev WHERE motivo = N'DUPLICADO'
+    UNION ALL SELECT N'Evento BRILLO_FUERA_DE_RANGO', COUNT(*) FROM #prueba_ev WHERE motivo = N'BRILLO_FUERA_DE_RANGO'
+    UNION ALL SELECT N'Evento FECHA_INVALIDA', COUNT(*) FROM #prueba_ev WHERE motivo = N'FECHA_INVALIDA'
+    UNION ALL SELECT N'Homologado ANOCHECER', COUNT(*) FROM #prueba_ev WHERE accion_homologada = N'ANOCHECER'
+    UNION ALL SELECT N'Homologado SUBE_BRILLO', COUNT(*) FROM #prueba_ev WHERE accion_homologada = N'SUBE_BRILLO'
+)
+SELECT e.concepto, e.valor AS esperado, o.valor AS obtenido,
+       CASE WHEN e.valor = o.valor THEN 'PASA' ELSE 'REVISAR' END AS resultado
+FROM esperado e JOIN obtenido o ON o.concepto = e.concepto;
+
+/* Re-ejecutar el ETL no debe duplicar nada: las marcas de agua ya pasaron estas filas. */
 GO

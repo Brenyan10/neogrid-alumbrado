@@ -7,17 +7,18 @@
      EXEC dbo.sp_etl_ejecutar_tsql;      -- ETL completo sin SSIS
 
    Procedimientos:
-     sp_etl_iniciar                  abre una ejecución y fija la ventana de ids
+     sp_etl_iniciar                  abre una ejecución y fija las ventanas de ids (mediciones y eventos)
      sp_etl_registrar_paso           registra la duración de un paso
-     sp_etl_cargar_dimensiones       MERGE (SCD tipo 1) de las 8 dimensiones
+     sp_etl_cargar_dimensiones       MERGE (SCD tipo 1) de las 11 dimensiones que vienen del relacional
      sp_etl_cargar_hechos_tsql       extrae, transforma, valida y carga el hecho principal
+     sp_etl_cargar_eventos_tsql      extrae, homologa, valida y carga el hecho de eventos
      sp_etl_cargar_hechos_secundarios  MERGE de fact_falla y fact_mantenimiento
      sp_etl_actualizar_agregados     recalcula los hechos agregados de los días afectados
-     sp_etl_finalizar                cierra la ejecución, cuenta filas y mueve la marca de agua
+     sp_etl_finalizar                cierra la ejecución, cuenta filas y mueve las marcas de agua
      sp_etl_registrar_error          marca la ejecución como fallida
      sp_etl_ejecutar_tsql            orquesta todo lo anterior
      sp_etl_reiniciar                vacía los hechos para repetir la carga completa
-   Requiere: 04 y 05.
+   Requiere: 04, 05 y 11 (y 10 en NeoGridRelacional).
    ===================================================================== */
 USE NeoGridDW;
 GO
@@ -29,7 +30,9 @@ CREATE OR ALTER PROCEDURE dbo.sp_etl_iniciar
     @devolver_resultado  BIT           = 0,
     @ejecucion_id        INT           = NULL OUTPUT,
     @watermark_min       INT           = NULL OUTPUT,
-    @watermark_max       INT           = NULL OUTPUT
+    @watermark_max       INT           = NULL OUTPUT,
+    @evento_min          INT           = NULL OUTPUT,
+    @evento_max          INT           = NULL OUTPUT
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -41,18 +44,29 @@ BEGIN
 
     IF NOT EXISTS (SELECT 1 FROM dbo.etl_control WHERE proceso = 'FACT_OPERACION')
         INSERT INTO dbo.etl_control (proceso, ultimo_medicion_id) VALUES ('FACT_OPERACION', 0);
+    IF NOT EXISTS (SELECT 1 FROM dbo.etl_control WHERE proceso = 'FACT_EVENTO')
+        INSERT INTO dbo.etl_control (proceso, ultimo_medicion_id) VALUES ('FACT_EVENTO', 0);
 
+    /* Ventana de mediciones: (última cargada, máxima actual] */
     SELECT @watermark_min = CAST(ultimo_medicion_id AS INT) FROM dbo.etl_control WHERE proceso = 'FACT_OPERACION';
     SELECT @watermark_max = CAST(ISNULL(MAX(medicion_id), 0) AS INT) FROM src.medicion;
     IF @watermark_max < @watermark_min SET @watermark_max = @watermark_min;
 
-    INSERT INTO dbo.etl_ejecucion (herramienta, paquete, inicio, estado, watermark_inicial, watermark_final)
-    VALUES (@herramienta, ISNULL(@paquete, N'sp_etl_ejecutar_tsql'), SYSDATETIME(), 'EN_CURSO', @watermark_min, @watermark_max);
+    /* Ventana de eventos: (último evento cargado, máximo actual] */
+    SELECT @evento_min = CAST(ultimo_medicion_id AS INT) FROM dbo.etl_control WHERE proceso = 'FACT_EVENTO';
+    SELECT @evento_max = CAST(ISNULL(MAX(evento_id), 0) AS INT) FROM src.evento_operativo;
+    IF @evento_max < @evento_min SET @evento_max = @evento_min;
+
+    INSERT INTO dbo.etl_ejecucion (herramienta, paquete, inicio, estado, watermark_inicial, watermark_final,
+                                   evento_watermark_inicial, evento_watermark_final)
+    VALUES (@herramienta, ISNULL(@paquete, N'sp_etl_ejecutar_tsql'), SYSDATETIME(), 'EN_CURSO', @watermark_min, @watermark_max,
+            @evento_min, @evento_max);
 
     SET @ejecucion_id = CAST(SCOPE_IDENTITY() AS INT);
 
     IF @devolver_resultado = 1
-        SELECT @ejecucion_id AS ejecucion_id, @watermark_min AS watermark_min, @watermark_max AS watermark_max;
+        SELECT @ejecucion_id AS ejecucion_id, @watermark_min AS watermark_min, @watermark_max AS watermark_max,
+               @evento_min AS evento_min, @evento_max AS evento_max;
 END
 GO
 
@@ -215,6 +229,75 @@ BEGIN
         THEN INSERT (tecnico_id, codigo, nombre, especialidad, activo) VALUES (s.tecnico_id, s.codigo, s.nombre, s.especialidad, s.activo);
     SET @filas_afectadas += @@ROWCOUNT;
 
+    /* dim_tipo_evento (el miembro 0 "desconocido" no se toca) */
+    MERGE dbo.dim_tipo_evento AS t
+    USING (SELECT tipo_evento_id, codigo, nombre, categoria FROM src.tipo_evento) AS s
+    ON t.tipo_evento_id = s.tipo_evento_id
+    WHEN MATCHED AND EXISTS (SELECT s.codigo, s.nombre, s.categoria EXCEPT SELECT t.codigo, t.nombre, t.categoria)
+        THEN UPDATE SET codigo = s.codigo, nombre = s.nombre, categoria = s.categoria, fecha_actualizacion = SYSDATETIME()
+    WHEN NOT MATCHED BY TARGET
+        THEN INSERT (tipo_evento_id, codigo, nombre, categoria) VALUES (s.tipo_evento_id, s.codigo, s.nombre, s.categoria);
+    SET @filas_afectadas += @@ROWCOUNT;
+
+    /* dim_proceso: el responsable y el número de usuarios se desnormalizan desde usuario_proceso */
+    MERGE dbo.dim_proceso AS t
+    USING (
+        SELECT p.proceso_id, p.codigo, p.nombre, p.tipo_operacion, CAST(p.es_automatico AS TINYINT) AS es_automatico,
+               ISNULL(r.login, 'N/A') AS responsable_login, ISNULL(r.nombre, N'Sin responsable') AS responsable_nombre,
+               ISNULL(n.usuarios, 0) AS usuarios_asignados
+        FROM src.proceso p
+        OUTER APPLY (SELECT TOP (1) vu.login, vu.nombre
+                     FROM src.usuario_proceso up JOIN src.vw_usuario vu ON vu.usuario_id = up.usuario_id
+                     WHERE up.proceso_id = p.proceso_id AND up.responsabilidad = 'RESPONSABLE') r
+        OUTER APPLY (SELECT COUNT(*) AS usuarios FROM src.usuario_proceso up WHERE up.proceso_id = p.proceso_id) n
+    ) AS s
+    ON t.proceso_id = s.proceso_id
+    WHEN MATCHED AND EXISTS (
+        SELECT s.codigo, s.nombre, s.tipo_operacion, s.es_automatico, s.responsable_login, s.responsable_nombre, s.usuarios_asignados
+        EXCEPT
+        SELECT t.codigo, t.nombre, t.tipo_operacion, t.es_automatico, t.responsable_login, t.responsable_nombre, t.usuarios_asignados)
+        THEN UPDATE SET codigo = s.codigo, nombre = s.nombre, tipo_operacion = s.tipo_operacion, es_automatico = s.es_automatico,
+                        responsable_login = s.responsable_login, responsable_nombre = s.responsable_nombre,
+                        usuarios_asignados = s.usuarios_asignados, fecha_actualizacion = SYSDATETIME()
+    WHEN NOT MATCHED BY TARGET
+        THEN INSERT (proceso_id, codigo, nombre, tipo_operacion, es_automatico, responsable_login, responsable_nombre, usuarios_asignados)
+             VALUES (s.proceso_id, s.codigo, s.nombre, s.tipo_operacion, s.es_automatico, s.responsable_login, s.responsable_nombre,
+                     s.usuarios_asignados);
+    SET @filas_afectadas += @@ROWCOUNT;
+
+    /* dim_usuario: rol, cargo y técnico desnormalizados; procesos de los que es responsable */
+    MERGE dbo.dim_usuario AS t
+    USING (
+        SELECT vu.usuario_id, vu.login, vu.nombre, vu.rol_codigo, vu.rol_nombre, vu.cargo,
+               CAST(r.es_automatico AS TINYINT) AS es_automatico,
+               CAST(CASE WHEN vu.tecnico_id IS NULL THEN 0 ELSE 1 END AS TINYINT) AS es_tecnico,
+               vu.tecnico_codigo, vu.especialidad,
+               CAST(ISNULL(pr.lista, N'Ninguno') AS NVARCHAR(200)) AS procesos_responsable,
+               CAST(vu.activo AS TINYINT) AS activo
+        FROM src.vw_usuario vu
+        JOIN src.rol r ON r.codigo = vu.rol_codigo
+        OUTER APPLY (SELECT STRING_AGG(CAST(p.codigo AS NVARCHAR(15)), N', ') WITHIN GROUP (ORDER BY p.proceso_id) AS lista
+                     FROM src.usuario_proceso up JOIN src.proceso p ON p.proceso_id = up.proceso_id
+                     WHERE up.usuario_id = vu.usuario_id AND up.responsabilidad = 'RESPONSABLE') pr
+    ) AS s
+    ON t.usuario_id = s.usuario_id
+    WHEN MATCHED AND EXISTS (
+        SELECT s.login, s.nombre, s.rol_codigo, s.rol_nombre, s.cargo, s.es_automatico, s.es_tecnico, s.tecnico_codigo,
+               s.especialidad, s.procesos_responsable, s.activo
+        EXCEPT
+        SELECT t.login, t.nombre, t.rol_codigo, t.rol_nombre, t.cargo, t.es_automatico, t.es_tecnico, t.tecnico_codigo,
+               t.especialidad, t.procesos_responsable, t.activo)
+        THEN UPDATE SET login = s.login, nombre = s.nombre, rol_codigo = s.rol_codigo, rol_nombre = s.rol_nombre, cargo = s.cargo,
+                        es_automatico = s.es_automatico, es_tecnico = s.es_tecnico, tecnico_codigo = s.tecnico_codigo,
+                        especialidad = s.especialidad, procesos_responsable = s.procesos_responsable, activo = s.activo,
+                        fecha_actualizacion = SYSDATETIME()
+    WHEN NOT MATCHED BY TARGET
+        THEN INSERT (usuario_id, login, nombre, rol_codigo, rol_nombre, cargo, es_automatico, es_tecnico, tecnico_codigo,
+                     especialidad, procesos_responsable, activo)
+             VALUES (s.usuario_id, s.login, s.nombre, s.rol_codigo, s.rol_nombre, s.cargo, s.es_automatico, s.es_tecnico,
+                     s.tecnico_codigo, s.especialidad, s.procesos_responsable, s.activo);
+    SET @filas_afectadas += @@ROWCOUNT;
+
     UPDATE dbo.etl_ejecucion SET dimensiones_actualizadas = @filas_afectadas WHERE ejecucion_id = @ejecucion_id;
     EXEC dbo.sp_etl_registrar_paso @ejecucion_id, N'Dimensiones (MERGE SCD1)', @t, @filas_afectadas, 'OK', NULL;
 END
@@ -355,6 +438,127 @@ BEGIN
     DECLARE @detalle NVARCHAR(400) = CONCAT(N'Leídas ', @filas_leidas, N' · insertadas ', @insertadas,
                                             N' · rechazadas ', @rechazadas, N' · omitidas ', @filas_omitidas);
     EXEC dbo.sp_etl_registrar_paso @ejecucion_id, N'Hecho de operación (T-SQL)', @t, @insertadas, 'OK', @detalle;
+END
+GO
+
+/* ------------------------------------------------------------------
+   Hecho de eventos en T-SQL. Aplica las MISMAS reglas que el flujo de
+   datos DFT_Eventos de SSIS: validación, homologación de la acción,
+   atributos derivados, búsqueda de claves y control de duplicados.
+   ------------------------------------------------------------------ */
+CREATE OR ALTER PROCEDURE dbo.sp_etl_cargar_eventos_tsql
+    @ejecucion_id      INT,
+    @eventos_leidos    INT = NULL OUTPUT,
+    @eventos_omitidos  INT = NULL OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @t DATETIME2(0) = SYSDATETIME();
+    DECLARE @emin BIGINT, @emax BIGINT, @insertados INT, @rechazados INT;
+
+    SELECT @emin = evento_watermark_inicial, @emax = evento_watermark_final
+    FROM dbo.etl_ejecucion WHERE ejecucion_id = @ejecucion_id;
+
+    /* E · Extracción ------------------------------------------------- */
+    IF OBJECT_ID('tempdb..#eve') IS NOT NULL DROP TABLE #eve;
+    SELECT x.* INTO #eve FROM src.fn_etl_extraccion_eventos(@emin, @emax) AS x;
+    SET @eventos_leidos = @@ROWCOUNT;
+
+    /* T · Validación, homologación, atributos y claves ---------------- */
+    IF OBJECT_ID('tempdb..#evt') IS NOT NULL DROP TABLE #evt;
+    SELECT
+        e.evento_id, e.tipo_codigo, e.fecha_hora, e.brillo_nuevo, e.falla_id, e.mantenimiento_id, e.minutos_desde_anterior,
+        v.motivo,
+        h.accion_homologada,
+        h.detalle_homologado,
+        CAST(CASE WHEN e.brillo_anterior IS NULL OR e.brillo_nuevo IS NULL THEN NULL
+                  ELSE e.brillo_nuevo - e.brillo_anterior END AS DECIMAL(6,1)) AS variacion_brillo_pct,
+        CAST(CASE WHEN e.tipo_codigo IN (N'FALLA_DETECTADA', N'DESCONEXION') THEN 1 ELSE 0 END AS TINYINT) AS es_critico,
+        dt.tiempo_key, dh.hora_key, dl.luminaria_key, du.ubicacion_key, dte.tipo_evento_key, dp.proceso_key,
+        dus.usuario_key, dor.origen_key, dea.estado_key AS estado_anterior_key, den.estado_key AS estado_nuevo_key,
+        CAST(0 AS TINYINT) AS ya_cargado
+    INTO #evt
+    FROM #eve e
+    CROSS APPLY (SELECT CAST(CASE
+            WHEN e.orden_duplicado > 1 THEN N'DUPLICADO'
+            WHEN e.fecha_hora < '20260101' OR e.fecha_hora > DATEADD(DAY, 1, GETDATE()) THEN N'FECHA_INVALIDA'
+            WHEN e.brillo_nuevo < 0 OR e.brillo_nuevo > 100 OR e.brillo_anterior < 0 OR e.brillo_anterior > 100 THEN N'BRILLO_FUERA_DE_RANGO'
+        END AS NVARCHAR(40)) AS motivo) v
+    CROSS APPLY (SELECT UPPER(ISNULL(e.detalle, N'')) AS det) d
+    CROSS APPLY (SELECT
+        CAST(CASE e.tipo_codigo
+            WHEN N'ENCENDIDO'            THEN N'ENCENDIDO'
+            WHEN N'APAGADO'              THEN N'APAGADO'
+            WHEN N'MODO_AHORRO'          THEN N'AHORRO'
+            WHEN N'CAMBIO_BRILLO'        THEN CASE
+                 WHEN e.brillo_anterior IS NOT NULL AND e.brillo_nuevo IS NOT NULL
+                      THEN CASE WHEN e.brillo_nuevo > e.brillo_anterior THEN N'SUBE_BRILLO'
+                                WHEN e.brillo_nuevo < e.brillo_anterior THEN N'BAJA_BRILLO'
+                                ELSE N'AJUSTE_BRILLO' END
+                 WHEN CHARINDEX(N'-> PERSONA', d.det) > 0 THEN N'SUBE_BRILLO'
+                 WHEN CHARINDEX(N'PERSONA ->', d.det) > 0 THEN N'BAJA_BRILLO'
+                 ELSE N'AJUSTE_BRILLO' END
+            WHEN N'DETECCION_MOVIMIENTO' THEN N'PRESENCIA'
+            WHEN N'CAMBIO_LUZ_AMBIENTE'  THEN CASE WHEN CHARINDEX(N'DIA -> NOCHE', d.det) > 0 THEN N'ANOCHECER'
+                                                   WHEN CHARINDEX(N'NOCHE -> DIA', d.det) > 0 THEN N'AMANECER'
+                                                   ELSE N'CAMBIO_LUZ' END
+            WHEN N'FALLA_DETECTADA'      THEN N'FALLA_INICIO'
+            WHEN N'FALLA_RESUELTA'       THEN N'FALLA_FIN'
+            WHEN N'INICIO_MANTENIMIENTO' THEN N'MANT_INICIO'
+            WHEN N'FIN_MANTENIMIENTO'    THEN N'MANT_FIN'
+            WHEN N'CONEXION'             THEN N'CONEXION'
+            WHEN N'DESCONEXION'          THEN N'DESCONEXION'
+            ELSE N'OTRO' END AS NVARCHAR(20)) AS accion_homologada,
+        CAST(CASE WHEN LEN(LTRIM(RTRIM(ISNULL(e.detalle, N'')))) = 0 THEN N'Sin detalle'
+                  ELSE LTRIM(RTRIM(e.detalle)) END AS NVARCHAR(200)) AS detalle_homologado) h
+    LEFT JOIN dbo.dim_tiempo dt              ON dt.tiempo_key = e.tiempo_key AND dt.tiempo_key > 0
+    LEFT JOIN dbo.dim_hora dh                ON dh.hora_key = e.hora_key
+    LEFT JOIN dbo.dim_luminaria dl           ON dl.luminaria_id = e.luminaria_id
+    LEFT JOIN dbo.dim_ubicacion du           ON du.ubicacion_id = e.ubicacion_id
+    LEFT JOIN dbo.dim_tipo_evento dte        ON dte.tipo_evento_id = e.tipo_evento_id
+    LEFT JOIN dbo.dim_proceso dp             ON dp.proceso_id = e.proceso_id
+    LEFT JOIN dbo.dim_usuario dus            ON dus.usuario_id = e.usuario_id
+    LEFT JOIN dbo.dim_origen dor             ON dor.origen_id = e.origen_id
+    LEFT JOIN dbo.dim_estado_operativo dea   ON dea.estado_id = e.estado_anterior_id
+    LEFT JOIN dbo.dim_estado_operativo den   ON den.estado_id = e.estado_nuevo_id;
+
+    UPDATE #evt SET motivo = N'CLAVE_SIN_DIMENSION'
+    WHERE motivo IS NULL
+      AND (tiempo_key IS NULL OR hora_key IS NULL OR luminaria_key IS NULL OR ubicacion_key IS NULL OR tipo_evento_key IS NULL
+           OR proceso_key IS NULL OR usuario_key IS NULL OR origen_key IS NULL OR estado_anterior_key IS NULL OR estado_nuevo_key IS NULL);
+
+    /* Eventos que ya están en el hecho (re-ejecución): se omiten sin rechazarlos */
+    UPDATE x SET ya_cargado = 1
+    FROM #evt x
+    WHERE EXISTS (SELECT 1 FROM dbo.fact_evento_operativo f WHERE f.evento_id = x.evento_id);
+
+    SELECT @eventos_omitidos = COUNT(*) FROM #evt WHERE ya_cargado = 1;
+
+    /* L · Rechazos ----------------------------------------------------- */
+    INSERT INTO dbo.etl_rechazo (ejecucion_id, evento_id, motivo, detalle)
+    SELECT @ejecucion_id, x.evento_id, x.motivo,
+           CONCAT(N'tipo=', x.tipo_codigo, N'; fecha=', CONVERT(VARCHAR(19), x.fecha_hora, 120),
+                  N'; brillo_nuevo=', ISNULL(CONVERT(NVARCHAR(12), x.brillo_nuevo), N'NULL'))
+    FROM #evt x
+    WHERE x.motivo IS NOT NULL AND x.ya_cargado = 0;
+    SET @rechazados = @@ROWCOUNT;
+
+    /* L · Hecho de eventos --------------------------------------------- */
+    INSERT INTO dbo.fact_evento_operativo
+        (evento_id, tiempo_key, hora_key, luminaria_key, ubicacion_key, tipo_evento_key, proceso_key, usuario_key, origen_key,
+         estado_anterior_key, estado_nuevo_key, fecha_hora, accion_homologada, detalle, falla_id, mantenimiento_id,
+         cantidad_eventos, es_critico, variacion_brillo_pct, minutos_desde_anterior, ejecucion_id)
+    SELECT x.evento_id, x.tiempo_key, x.hora_key, x.luminaria_key, x.ubicacion_key, x.tipo_evento_key, x.proceso_key, x.usuario_key,
+           x.origen_key, x.estado_anterior_key, x.estado_nuevo_key, x.fecha_hora, x.accion_homologada, x.detalle_homologado,
+           x.falla_id, x.mantenimiento_id, 1, x.es_critico, x.variacion_brillo_pct, x.minutos_desde_anterior, @ejecucion_id
+    FROM #evt x
+    WHERE x.motivo IS NULL AND x.ya_cargado = 0
+    ORDER BY x.evento_id;
+    SET @insertados = @@ROWCOUNT;
+
+    DECLARE @detalle NVARCHAR(400) = CONCAT(N'Leídos ', @eventos_leidos, N' · insertados ', @insertados,
+                                            N' · rechazados ', @rechazados, N' · omitidos ', @eventos_omitidos);
+    EXEC dbo.sp_etl_registrar_paso @ejecucion_id, N'Hecho de eventos (T-SQL)', @t, @insertados, 'OK', @detalle;
 END
 GO
 
@@ -552,50 +756,70 @@ GO
 
 /* ------------------------------------------------------------------ */
 CREATE OR ALTER PROCEDURE dbo.sp_etl_finalizar
-    @ejecucion_id    INT,
-    @filas_leidas    INT = NULL,
-    @filas_omitidas  INT = NULL
+    @ejecucion_id      INT,
+    @filas_leidas      INT = NULL,
+    @filas_omitidas    INT = NULL,
+    @eventos_leidos    INT = NULL,
+    @eventos_omitidos  INT = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
     DECLARE @ins INT, @rech INT, @imp INT, @anom INT, @herr VARCHAR(10), @inicio DATETIME2(0);
+    DECLARE @ev_ins INT, @ev_rech INT;
 
     SELECT @ins = COUNT(*),
            @imp = SUM(CASE WHEN calidad_key IN (2, 4) THEN 1 ELSE 0 END),
            @anom = SUM(CASE WHEN calidad_key IN (3, 4) THEN 1 ELSE 0 END)
     FROM dbo.fact_operacion_luminaria WHERE ejecucion_id = @ejecucion_id;
-    SELECT @rech = COUNT(*) FROM dbo.etl_rechazo WHERE ejecucion_id = @ejecucion_id;
+    SELECT @rech = COUNT(*) FROM dbo.etl_rechazo WHERE ejecucion_id = @ejecucion_id AND medicion_id IS NOT NULL;
+    SELECT @ev_ins = COUNT(*) FROM dbo.fact_evento_operativo WHERE ejecucion_id = @ejecucion_id;
+    SELECT @ev_rech = COUNT(*) FROM dbo.etl_rechazo WHERE ejecucion_id = @ejecucion_id AND evento_id IS NOT NULL;
     SELECT @herr = herramienta, @inicio = inicio FROM dbo.etl_ejecucion WHERE ejecucion_id = @ejecucion_id;
 
     SET @imp = ISNULL(@imp, 0);
     SET @anom = ISNULL(@anom, 0);
     SET @filas_omitidas = ISNULL(@filas_omitidas, 0);
     SET @filas_leidas = ISNULL(@filas_leidas, @ins + @rech + @filas_omitidas);
+    SET @eventos_omitidos = ISNULL(@eventos_omitidos, 0);
+    SET @eventos_leidos = ISNULL(@eventos_leidos, @ev_ins + @ev_rech + @eventos_omitidos);
 
     IF @herr = 'SSIS'
+    BEGIN
         EXEC dbo.sp_etl_registrar_paso @ejecucion_id, N'Hecho de operación (flujo de datos SSIS)', @inicio, @ins, 'OK', NULL;
+        DECLARE @det_ev NVARCHAR(400) = CONCAT(N'Leídos ', @eventos_leidos, N' · insertados ', @ev_ins,
+                                               N' · rechazados ', @ev_rech, N' · omitidos ', @eventos_omitidos);
+        EXEC dbo.sp_etl_registrar_paso @ejecucion_id, N'Hecho de eventos (flujo de datos SSIS)', @inicio, @ev_ins, 'OK', @det_ev;
+    END
 
     UPDATE dbo.etl_ejecucion
        SET fin = SYSDATETIME(),
-           estado = CASE WHEN @rech > 0 THEN 'CON_RECHAZOS' ELSE 'EXITOSA' END,
+           estado = CASE WHEN @rech + @ev_rech > 0 THEN 'CON_RECHAZOS' ELSE 'EXITOSA' END,
            filas_leidas = @filas_leidas,
            filas_insertadas = @ins,
            filas_rechazadas = @rech,
            filas_omitidas = @filas_omitidas,
            filas_imputadas = @imp,
            filas_anomalas = @anom,
-           mensaje = CONCAT(N'Leídas ', @filas_leidas, N' · insertadas ', @ins, N' · rechazadas ', @rech,
-                            N' · omitidas ', @filas_omitidas, N' · imputadas ', @imp, N' · anómalas ', @anom)
+           eventos_leidos = @eventos_leidos,
+           eventos_insertados = @ev_ins,
+           eventos_rechazados = @ev_rech,
+           eventos_omitidos = @eventos_omitidos,
+           mensaje = CONCAT(N'Mediciones: leídas ', @filas_leidas, N' · insertadas ', @ins, N' · rechazadas ', @rech,
+                            N' · omitidas ', @filas_omitidas, N' · imputadas ', @imp, N' · anómalas ', @anom,
+                            N' | Eventos: leídos ', @eventos_leidos, N' · insertados ', @ev_ins,
+                            N' · rechazados ', @ev_rech, N' · omitidos ', @eventos_omitidos)
      WHERE ejecucion_id = @ejecucion_id;
 
     UPDATE c
-       SET ultimo_medicion_id = e.watermark_final, ultima_ejecucion_id = e.ejecucion_id, actualizado = SYSDATETIME()
+       SET ultimo_medicion_id = CASE c.proceso WHEN 'FACT_OPERACION' THEN e.watermark_final ELSE e.evento_watermark_final END,
+           ultima_ejecucion_id = e.ejecucion_id, actualizado = SYSDATETIME()
       FROM dbo.etl_control c
       JOIN dbo.etl_ejecucion e ON e.ejecucion_id = @ejecucion_id
-     WHERE c.proceso = 'FACT_OPERACION';
+     WHERE c.proceso IN ('FACT_OPERACION', 'FACT_EVENTO');
 
     SELECT ejecucion_id, herramienta, estado, inicio, fin, filas_leidas, filas_insertadas, filas_rechazadas,
-           filas_omitidas, filas_imputadas, filas_anomalas, dimensiones_actualizadas, mensaje
+           filas_omitidas, filas_imputadas, filas_anomalas, eventos_leidos, eventos_insertados, eventos_rechazados,
+           eventos_omitidos, dimensiones_actualizadas, mensaje
     FROM dbo.etl_ejecucion WHERE ejecucion_id = @ejecucion_id;
 END
 GO
@@ -629,25 +853,31 @@ CREATE OR ALTER PROCEDURE dbo.sp_etl_ejecutar_tsql
 AS
 BEGIN
     SET NOCOUNT ON;
-    DECLARE @id INT, @wmin INT, @wmax INT, @dims INT, @leidas INT, @omitidas INT;
+    DECLARE @id INT, @wmin INT, @wmax INT, @emin INT, @emax INT, @dims INT, @leidas INT, @omitidas INT,
+            @ev_leidos INT, @ev_omitidos INT;
 
     EXEC dbo.sp_etl_iniciar @herramienta = 'TSQL', @paquete = N'sp_etl_ejecutar_tsql',
-         @ejecucion_id = @id OUTPUT, @watermark_min = @wmin OUTPUT, @watermark_max = @wmax OUTPUT;
+         @ejecucion_id = @id OUTPUT, @watermark_min = @wmin OUTPUT, @watermark_max = @wmax OUTPUT,
+         @evento_min = @emin OUTPUT, @evento_max = @emax OUTPUT;
 
     BEGIN TRY
-        RAISERROR(N'1/4 Dimensiones...', 0, 1) WITH NOWAIT;
+        RAISERROR(N'1/5 Dimensiones...', 0, 1) WITH NOWAIT;
         EXEC dbo.sp_etl_cargar_dimensiones @ejecucion_id = @id, @filas_afectadas = @dims OUTPUT;
 
-        RAISERROR(N'2/4 Hecho de operación (puede tardar algunos minutos la primera vez)...', 0, 1) WITH NOWAIT;
+        RAISERROR(N'2/5 Hecho de operación (puede tardar algunos minutos la primera vez)...', 0, 1) WITH NOWAIT;
         EXEC dbo.sp_etl_cargar_hechos_tsql @ejecucion_id = @id, @filas_leidas = @leidas OUTPUT, @filas_omitidas = @omitidas OUTPUT;
 
-        RAISERROR(N'3/4 Hechos de fallas y mantenimiento...', 0, 1) WITH NOWAIT;
+        RAISERROR(N'3/5 Hecho de eventos...', 0, 1) WITH NOWAIT;
+        EXEC dbo.sp_etl_cargar_eventos_tsql @ejecucion_id = @id, @eventos_leidos = @ev_leidos OUTPUT, @eventos_omitidos = @ev_omitidos OUTPUT;
+
+        RAISERROR(N'4/5 Hechos de fallas y mantenimiento...', 0, 1) WITH NOWAIT;
         EXEC dbo.sp_etl_cargar_hechos_secundarios @ejecucion_id = @id;
 
-        RAISERROR(N'4/4 Hechos agregados...', 0, 1) WITH NOWAIT;
+        RAISERROR(N'5/5 Hechos agregados...', 0, 1) WITH NOWAIT;
         EXEC dbo.sp_etl_actualizar_agregados @ejecucion_id = @id;
 
-        EXEC dbo.sp_etl_finalizar @ejecucion_id = @id, @filas_leidas = @leidas, @filas_omitidas = @omitidas;
+        EXEC dbo.sp_etl_finalizar @ejecucion_id = @id, @filas_leidas = @leidas, @filas_omitidas = @omitidas,
+             @eventos_leidos = @ev_leidos, @eventos_omitidos = @ev_omitidos;
     END TRY
     BEGIN CATCH
         DECLARE @err NVARCHAR(4000) = CONCAT(ERROR_MESSAGE(), N' (procedimiento ', ISNULL(ERROR_PROCEDURE(), N'-'),
@@ -672,7 +902,8 @@ BEGIN
     TRUNCATE TABLE dbo.fact_operacion_horaria;
     TRUNCATE TABLE dbo.fact_falla;
     TRUNCATE TABLE dbo.fact_mantenimiento;
-    UPDATE dbo.etl_control SET ultimo_medicion_id = 0, ultima_ejecucion_id = NULL, actualizado = SYSDATETIME();
+    TRUNCATE TABLE dbo.fact_evento_operativo;
+    UPDATE dbo.etl_control SET ultimo_medicion_id = 0, ultima_ejecucion_id = NULL, actualizado = SYSDATETIME();   -- mediciones y eventos
     IF @borrar_historial = 1
     BEGIN
         DELETE FROM dbo.etl_rechazo;

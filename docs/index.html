@@ -71,7 +71,7 @@
     <div><dt>Tipo de proyecto</dt><dd data-pendiente>Por confirmar</dd></div>
     <div><dt>Integrantes</dt><dd>Brayan Fabian Sánchez Sierra · Elkin Arévalo</dd></div>
     <div><dt>Asignatura y docente</dt><dd>Big Data · Edison Cañón</dd></div>
-    <div><dt>Periodo de los datos</dt><dd>1 de mayo al 10 de octubre de 2026</dd></div>
+    <div><dt>Periodo de los datos</dt><dd>1 de mayo al 6 de noviembre de 2026 (simulación hasta el 10 de octubre; maqueta física hasta el 6 de noviembre)</dd></div>
   </dl>
 </section>
 
@@ -315,8 +315,8 @@
   <table>
     <tbody>
       <tr><th scope="row">Fuente</th><td>NeoGridDW en SQL Server 2025, cargado por el paquete SSIS <code>ETL_NeoGrid.dtsx</code></td></tr>
-      <tr><th scope="row">Periodo</th><td>1 de mayo al 10 de octubre de 2026 (simulación) más las sesiones registradas de la maqueta física</td></tr>
-      <tr><th scope="row">Registros</th><td>1.000.320 mediciones de 15 min · 66.562 eventos operativos · 128 fallas (81 simuladas y 47 físicas)</td></tr>
+      <tr><th scope="row">Periodo</th><td>1 de mayo al 6 de noviembre de 2026: la simulación cubre del 1 de mayo al 10 de octubre y las sesiones de la maqueta física llegan hasta el 6 de noviembre</td></tr>
+      <tr><th scope="row">Registros</th><td>1.000.320 mediciones de 15 min · 66.562 eventos operativos · 128 fallas (81 simuladas y 47 físicas). Se excluyen las 3 mediciones y 2 eventos de origen PRUEBA.</td></tr>
       <tr><th scope="row">Variables</th><td>Fecha, hora, franja, tipo de día, luminaria, zona, tipo de zona, origen, calidad del dato · brillo (%), luz (lux), detecciones, energía y energía de referencia (Wh), ahorro (Wh), en falla, encendida · tipo y duración de falla (h) · acción homologada, proceso, usuario, crítico</td></tr>
       <tr><th scope="row">Reglas de calidad</th><td>Sin duplicados por luminaria e intervalo; brillo entre 0 y 100 %; fechas dentro del periodo; nulos imputados y marcados; lecturas anómalas marcadas, no borradas; filas sin dimensión válida rechazadas con su motivo; 42 pruebas de integridad aprobadas</td></tr>
     </tbody>
@@ -360,79 +360,79 @@
 <!-- ============ 11 CONOCIMIENTOS ============ -->
 <section id="conocimientos">
   <h2><span>11</span> Conocimientos evidentes</h2>
-  <p>Cada conocimiento sale de un análisis del dashboard y se recalcula en SQL con el bloque indicado, para que cualquiera pueda repetirlo.</p>
+  <p>Cada conocimiento sale de los análisis del dashboard y se recalcula en SQL con los bloques indicados de <code>15_dashboard_conocimientos.sql</code>, para que cualquiera pueda repetirlo. Datos: 1.000.320 mediciones, 128 fallas y 66.562 eventos, del 1 de mayo al 6 de noviembre de 2026.</p>
 
   <article class="conocimiento" id="c1">
-    <header><span class="num-c">C1</span><h3>El control adaptativo ahorra alrededor del 70 % y el ahorro es máximo en la madrugada</h3></header>
-    <figure class="grafico-img"><img src="img/c1.svg" alt="Gráfico de barras y línea: energía y ahorro por hora; el ahorro llega a 82,7 % de 2 a 4 a. m. y es −14 % de día" loading="lazy" width="900" height="380"></figure>
+    <header><span class="num-c">C1</span><h3>El control adaptativo ahorra el 70,4 % de la energía, y el ahorro es máximo en la madrugada</h3></header>
+    <figure class="grafico-img"><img src="img/c1.svg" alt="Barras de energía por hora y línea de ahorro: 82,7 % de 2 a 4 a. m., 63,6 % a las 19 y 20 h y −14 % de día" loading="lazy" width="900" height="380"></figure>
     <dl class="ficha-c">
-      <dt>Pregunta</dt><dd>P1. ¿Cuánta energía ahorra la atenuación frente a operar al 100 % y en qué horas?</dd>
-      <dt>Variables</dt><dd>Hora del día, energía consumida y energía de referencia (Wh).</dd>
-      <dt>Procedimiento</dt><dd>Ahorro % = (referencia − consumida) / referencia, sumando por hora (B1, bloque E38). La referencia es la luminaria encendida al 100 % de noche.</dd>
-      <dt>Resultado</dt><dd>En todo el periodo el ahorro es 70,4 % (KPI 3). De 2 a 4 a. m. llega a 82,7 %. Entre las 19 y 20 h baja a cerca de 63,6 %, cuando hay más presencia (5,8 detecciones por intervalo frente a 0,4 en la madrugada).</dd>
-      <dt>Hallazgo</dt><dd>El ahorro sigue a la presencia: donde hay menos gente, el control baja más el brillo.</dd>
-      <dt>Interpretación</dt><dd>La atenuación cumple su objetivo y la madrugada es la franja que más energía devuelve.</dd>
-      <dt>Utilidad</dt><dd>Respalda mantener la atenuación y muestra que el margen de mejora está en las primeras horas de la noche.</dd>
-      <dt>Limitación</dt><dd>La referencia es teórica (100 % toda la noche). El ahorro frente a otra política, como un horario fijo, sería menor.</dd>
+      <dt>Pregunta</dt><dd>P1. ¿Cuánta energía ahorra la atenuación frente a operar al 100 % y en qué horas se concentra el ahorro?</dd>
+      <dt>Variables</dt><dd>Hora del día, brillo (%), energía consumida y energía de referencia (Wh), detecciones.</dd>
+      <dt>Procedimiento</dt><dd>Ahorro % = Σ(referencia − consumida) / Σ referencia, en total (KPI 3, bloque E34) y por hora (B1, bloque E38). La referencia es la luminaria al 100 % de noche. Apoyo: distribución del brillo nocturno (U1, bloque E35).</dd>
+      <dt>Resultado</dt><dd>Se consumieron 2.839 kWh frente a 9.606 kWh de referencia: <strong>70,4 %</strong> de ahorro. De 2 a 4 a. m. el ahorro llega a <strong>82,7 %</strong>, con 0,4 detecciones por intervalo. A las 19 y 20 h baja a <strong>63,6 %</strong>, con 5,9 detecciones. El 94 % de los intervalos nocturnos está entre 10 y 40 % de brillo (media 26,3 %, mediana 26,8 %, máximo 79,8 %).</dd>
+      <dt>Hallazgo</dt><dd>El ahorro sigue a la presencia: en las horas con menos gente el control baja más el brillo. Como la media y la mediana del brillo son casi iguales, la operación típica está cerca del 26 % y no hay un grupo grande de horas a plena potencia.</dd>
+      <dt>Interpretación</dt><dd>La atenuación cumple su objetivo. La franja de mayor consumo es de 19 a 21 h, cuando hay más presencia.</dd>
+      <dt>Utilidad</dt><dd>Respalda mantener la atenuación y muestra que el margen de mejora está al comienzo de la noche.</dd>
+      <dt>Limitación</dt><dd>La referencia es teórica (100 % toda la noche). Frente a otra política, como un horario fijo con atenuación, el ahorro sería menor.</dd>
     </dl>
   </article>
 
   <article class="conocimiento" id="c2">
-    <header><span class="num-c">C2</span><h3>De día el ahorro es negativo porque algunas luminarias quedan encendidas, y se concentran en las que tuvieron falla de LDR</h3></header>
-    <figure class="grafico-img"><img src="img/c2.svg" alt="Barras de horas encendida por luminaria; AVC-L10 tiene 2.340 h y las demás alrededor de 1.816 h" loading="lazy" width="900" height="380"></figure>
+    <header><span class="num-c">C2</span><h3>El consumo de día se concentra en luminarias con falla del sensor de luz, y el indicador de falla no lo detecta</h3></header>
+    <figure class="grafico-img"><img src="img/c2.svg" alt="Barras de energía consumida de día por luminaria: AVC-L10 con 20,82 kWh y 533,8 h; las demás por debajo de 2,5 kWh" loading="lazy" width="900" height="390"></figure>
     <dl class="ficha-c">
-      <dt>Pregunta</dt><dd>P2. ¿Qué luminarias consumen de día y se asocia a fallas del sensor de luz?</dd>
-      <dt>Variables</dt><dd>Luminaria, es_noche, encendida, energía (Wh), fallas por tipo.</dd>
-      <dt>Procedimiento</dt><dd>Se filtran los intervalos de día con la luminaria encendida, se suma la energía por luminaria y se cruza con las fallas LECTURA_LDR (tabla del Resumen, bloque E42).</dd>
-      <dt>Resultado</dt><dd>Entre 6 a. m. y 5 p. m. el 0,8 % de los intervalos tiene la luminaria encendida y el ahorro es −14 %. AVC-L10 acumula 2.340 h encendida frente a unas 1.816 h de sus vecinas de la Avenida Central.</dd>
-      <dt>Hallazgo</dt><dd>Pocas luminarias concentran el consumo diurno y coinciden con fallas del LDR.</dd>
-      <dt>Interpretación</dt><dd>Una falla del sensor de luz no apaga la calle, pero hace que el control crea que es de noche y gaste energía sin necesidad.</dd>
-      <dt>Utilidad</dt><dd>Indica qué luminarias revisar primero (Decisión 1).</dd>
-      <dt>Limitación</dt><dd>Es una asociación: con estos datos no se prueba que toda la energía diurna se deba al LDR.</dd>
+      <dt>Pregunta</dt><dd>P2. ¿Qué luminarias consumen energía de día y eso se asocia a fallas del LDR?</dd>
+      <dt>Variables</dt><dd>Luminaria, zona, es_noche, encendida, en_falla, energía (Wh), fallas por tipo.</dd>
+      <dt>Procedimiento</dt><dd>Se filtran los intervalos de día con la luminaria encendida, se suma la energía por luminaria y se cruza con las fallas LECTURA_LDR (tabla del Resumen, bloque E42). Luego se compara el encendido diurno en intervalos marcados y no marcados como falla (bloque E43).</dd>
+      <dt>Resultado</dt><dd>El 0,81 % de los intervalos de día tiene la luminaria encendida, y por eso el ahorro de cada hora diurna es −14 %. <strong>AVC-L10</strong> consumió <strong>20,82 kWh</strong> de día (533,8 h), ocho veces más que la siguiente (AVC-L01, 2,46 kWh). <strong>Las 12 luminarias</strong> con más consumo diurno tuvieron una falla LECTURA_LDR, y la de AVC-L10 sigue abierta tras 1.639,8 h. Los 4.331 intervalos diurnos encendidos ocurrieron en intervalos <strong>no marcados</strong> como falla (0 en los marcados).</dd>
+      <dt>Hallazgo</dt><dd>El desperdicio diurno se concentra en pocas luminarias, todas con falla del LDR, y el campo en_falla no lo refleja.</dd>
+      <dt>Interpretación</dt><dd>Una falla del LDR no apaga la calle: hace que el control crea que es de noche. Como la luminaria «funciona», el monitoreo no la marca y el gasto pasa inadvertido.</dd>
+      <dt>Utilidad</dt><dd>Indica qué luminarias revisar primero y qué alerta falta en el monitoreo (Decisión 1).</dd>
+      <dt>Limitación</dt><dd>Es una asociación: los datos no prueban que todo el consumo diurno se deba al LDR. Las cifras de AVC-L10 dependen de una sola falla larga.</dd>
     </dl>
   </article>
 
   <article class="conocimiento" id="c3">
-    <header><span class="num-c">C3</span><h3>La presencia, y con ella el ahorro, depende de la zona y del tipo de día a la vez</h3></header>
-    <figure class="grafico-img"><img src="img/c3.svg" alt="Barras agrupadas de detecciones por luminaria-día por tipo de zona y tipo de día" loading="lazy" width="900" height="380"></figure>
+    <header><span class="num-c">C3</span><h3>Las diferencias de ahorro entre zonas y tipos de día aparecen solo en la noche; en la madrugada todas ahorran entre 75 y 78 %</h3></header>
+    <figure class="grafico-img"><img src="img/c3.svg" alt="Mapa de calor del ahorro por tipo de zona, franja y tipo de día; el menor es comercial, noche, fin de semana con 56,8 %" loading="lazy" width="900" height="390"></figure>
     <dl class="ficha-c">
-      <dt>Pregunta</dt><dd>P3. ¿Difieren las zonas en presencia y ahorro según la franja y el tipo de día?</dd>
+      <dt>Pregunta</dt><dd>P3. ¿Difieren las zonas en presencia y ahorro, y cambia según la franja y el tipo de día?</dd>
       <dt>Variables</dt><dd>Tipo de zona, franja horaria, tipo de día, detecciones, energía y referencia.</dd>
-      <dt>Procedimiento</dt><dd>Matriz M1: cada celda se calcula sobre las filas que cumplen a la vez la zona, la franja y el tipo de día (bloque E41). Apoyo: E31.</dd>
-      <dt>Resultado</dt><dd>Las zonas residenciales tienen unas 172 detecciones por luminaria-día y las comerciales entre 546 y 608. La zona vial baja de 523 en días laborales a 376 en fin de semana, mientras la comercial sube a 608.</dd>
-      <dt>Hallazgo</dt><dd>Las zonas con menos presencia ahorran más (residencial cerca de 72 %, comercial cerca de 67 %). El efecto del fin de semana va en sentido contrario en la zona vial y en la comercial.</dd>
-      <dt>Interpretación</dt><dd>Una sola regla de atenuación para toda la ciudad deja ahorro sin aprovechar. El perfil debería ajustarse por zona y tipo de día.</dd>
-      <dt>Utilidad</dt><dd>Orienta perfiles de brillo por zona.</dd>
-      <dt>Limitación</dt><dd>Hay solo 8 días festivos en el periodo, así que las celdas de festivo tienen pocos datos.</dd>
+      <dt>Procedimiento</dt><dd>Multivariado M1: cada celda se calcula sobre las filas que cumplen a la vez la zona, la franja y el tipo de día (bloque E41). No es la unión de tres resultados separados. Apoyo bivariado: zona × presencia y ahorro (B2, bloque E39).</dd>
+      <dt>Resultado</dt><dd>En la madrugada el ahorro va de 74,8 a 78,4 % en todas las combinaciones. En la noche (18 a 24 h) va de <strong>56,8 %</strong> (comercial, fin de semana, 9,94 detecciones por intervalo) a <strong>70,5 %</strong> (residencial, laboral, 2,16). La zona vial va al revés que la comercial: su fin de semana tiene menos presencia y más ahorro (67,3 % frente a 64,6 % en días laborales). En el bivariado, residencial tiene 174 detecciones por luminaria-día y 72,4 % de ahorro, y comercial 565 y 66,7 %.</dd>
+      <dt>Hallazgo</dt><dd>La combinación comercial + noche + fin de semana es la de menor ahorro. El efecto del tipo de día depende de la zona, y eso no se ve mirando cada variable por separado.</dd>
+      <dt>Interpretación</dt><dd>Mayor presencia se asocia con menor ahorro, sobre todo al comienzo de la noche. Una regla única de atenuación no aprovecha estas diferencias.</dd>
+      <dt>Utilidad</dt><dd>Señala dónde y cuándo ajustar el perfil de brillo: noches de zonas comercial y vial.</dd>
+      <dt>Limitación</dt><dd>Los festivos son 8 días (de 1.920 a 5.376 intervalos por celda). Es una asociación: la presencia simulada sigue reglas definidas por el equipo.</dd>
     </dl>
   </article>
 
   <article class="conocimiento" id="c4">
-    <header><span class="num-c">C4</span><h3>Las fallas de comunicación, PIR, sobretensión y driver tardan semanas, mientras fusibles y LED se resuelven en uno o dos días</h3></header>
-    <figure class="grafico-img"><img src="img/c4.svg" alt="Barras de duración media por tipo de falla, con una línea de referencia en 72 h" loading="lazy" width="900" height="380"></figure>
+    <header><span class="num-c">C4</span><h3>En el caso típico, las fallas de sensores (PIR y LDR) son las que más tardan, y las fallas abiertas inflan los promedios</h3></header>
+    <figure class="grafico-img"><img src="img/c4.svg" alt="Barras de mediana y media de duración por tipo de falla; PIR y LDR tienen las medianas más altas, 82 y 80,4 h; sobretensión tiene media 299,7 h y mediana 3,2 h" loading="lazy" width="900" height="390"></figure>
     <dl class="ficha-c">
       <dt>Pregunta</dt><dd>P4. ¿Qué tipos de falla tardan más en resolverse?</dd>
-      <dt>Variables</dt><dd>Tipo de falla, severidad, origen, horas de duración.</dd>
-      <dt>Procedimiento</dt><dd>Duración media y mediana por tipo de falla (B3, bloque E40) y distribución por rangos (U2, bloque E36).</dd>
-      <dt>Resultado</dt><dd>En la simulación, comunicación promedia 321 h, PIR 307 h, sobretensión 300 h y driver 240 h. Fusible promedia 24 h y LED fundido 50 h. En la maqueta, las fallas de comunicación duran en promedio 6,5 h.</dd>
-      <dt>Hallazgo</dt><dd>Las fallas más largas no son las más graves: sobretensión es de severidad alta, pero comunicación y PIR son media y baja.</dd>
-      <dt>Interpretación</dt><dd>La atención no está siguiendo la severidad: una falla de severidad alta, como la sobretensión, dura en promedio 12 días.</dd>
-      <dt>Utilidad</dt><dd>Sustenta un tiempo objetivo de atención por tipo de falla (Decisión 2).</dd>
-      <dt>Limitación</dt><dd>Los grupos son pequeños (7 a 15 fallas por tipo simulado) y la media se infla con pocas fallas muy largas. Por eso se compara con la mediana.</dd>
+      <dt>Variables</dt><dd>Tipo de falla, severidad, origen, horas de duración, abierta.</dd>
+      <dt>Procedimiento</dt><dd>Distribución por rangos de duración (U2, bloque E36), media y mediana por tipo (B3, bloque E40) y revisión de las fallas más largas (bloque E45).</dd>
+      <dt>Resultado</dt><dd>Las 128 fallas tienen una media de <strong>137 h</strong>, pero una mediana de <strong>11,2 h</strong> (E34): el 53,9 % se resuelve en menos de 24 h y el 7,8 % dura 14 días o más (E36). Por tipo, las medianas más altas son <strong>PIR 82 h</strong> y <strong>LDR 80,4 h</strong>, seguidas de driver con 65,2 h. Sobretensión tiene una media de 299,7 h, pero una mediana de solo 3,2 h. Las 8 fallas más largas (de 1.232 a 1.801 h) siguen abiertas.</dd>
+      <dt>Hallazgo</dt><dd>La distribución está muy sesgada a la derecha. Las pocas fallas abiertas elevan las medias, mientras que en el caso típico los sensores son el cuello de botella.</dd>
+      <dt>Interpretación</dt><dd>Si se prioriza por promedio se atendería primero la sobretensión. La mediana muestra que lo que demora la reparación típica son los sensores, que además causan el desperdicio de C2.</dd>
+      <dt>Utilidad</dt><dd>Sustenta el tiempo máximo de atención y el cierre de las fallas abiertas (Decisión 2).</dd>
+      <dt>Limitación</dt><dd>Los grupos son pequeños (7 a 61 fallas por tipo). Las fallas abiertas se miden hasta el corte de los datos. Las 47 fallas físicas de comunicación se resuelven casi al instante (mediana 0 h) y bajan la mediana de ese tipo.</dd>
     </dl>
   </article>
 
   <article class="conocimiento" id="c5">
-    <header><span class="num-c">C5</span><h3>El 97 % de los eventos los genera el control automático, y los críticos son menos del 1 %</h3></header>
-    <figure class="grafico-img"><img src="img/c5.svg" alt="Barras en escala logarítmica de eventos por quién actúa" loading="lazy" width="900" height="380"></figure>
+    <header><span class="num-c">C5</span><h3>El 97,4 % de los eventos los genera el control automático, y los críticos son el 0,28 %</h3></header>
+    <figure class="grafico-img"><img src="img/c5.svg" alt="Barras en escala logarítmica: control automático 64.817 eventos, otros procesos automáticos 1.009, técnicos 655 y operadores 81" loading="lazy" width="900" height="310"></figure>
     <dl class="ficha-c">
-      <dt>Pregunta</dt><dd>P5. ¿Quién genera los eventos y cuántos son críticos?</dd>
+      <dt>Pregunta</dt><dd>P5. ¿Quién genera los eventos operativos y cuántos son críticos?</dd>
       <dt>Variables</dt><dd>Proceso, usuario que actúa, acción homologada, crítico.</dd>
-      <dt>Procedimiento</dt><dd>Conteo de eventos por proceso y usuario, y porcentaje de críticos (U3 y KPI 6; bloques E34 y E37; apoyo E29).</dd>
-      <dt>Resultado</dt><dd>De 66.562 eventos, 64.817 son del control adaptativo (97,4 %). Los técnicos registran 655 y los operadores 81. Hay 186 eventos críticos (0,28 %).</dd>
-      <dt>Hallazgo</dt><dd>La carga humana es baja y se concentra en fallas y mantenimientos.</dd>
-      <dt>Interpretación</dt><dd>Un tablero que muestre todos los eventos esconde lo importante. Hay que filtrar por críticos y por atención.</dd>
-      <dt>Utilidad</dt><dd>Define qué ver en la pantalla del operador.</dd>
+      <dt>Procedimiento</dt><dd>Conteo de eventos por quién actúa, porcentaje de críticos (KPI 6, bloque E34; apoyo E29) y frecuencia de las acciones homologadas (U3, bloque E37).</dd>
+      <dt>Resultado</dt><dd>De 66.562 eventos, <strong>64.817</strong> son del control adaptativo (97,4 %), 1.009 de otros procesos automáticos, 655 de técnicos y 81 de operadores. Hay 186 eventos críticos (<strong>0,28 %</strong>). BAJA_BRILLO (34,8 %) y SUBE_BRILLO (30,9 %) suman dos tercios de los eventos. FALLA_INICIO es el 0,19 %.</dd>
+      <dt>Hallazgo</dt><dd>La carga humana es baja y se concentra en fallas y mantenimientos. Lo crítico queda escondido entre decenas de miles de ajustes de brillo.</dd>
+      <dt>Interpretación</dt><dd>Un tablero que muestre todos los eventos no ayuda al operador. Hay que separar los críticos y los de atención.</dd>
+      <dt>Utilidad</dt><dd>Define qué ver en la pantalla del operador y sustenta que la alerta de la Decisión 1 sea un evento crítico aparte.</dd>
       <dt>Limitación</dt><dd>«Crítico» es una regla del modelo (falla o desconexión), no una medición del impacto en la calle.</dd>
     </dl>
   </article>
@@ -442,11 +442,12 @@
 <section id="validacion">
   <h2><span>12</span> Validación</h2>
   <ul class="checklist">
-    <li><strong>Se obtienen de los datos:</strong> cada visual del dashboard se recalcula en SQL con su bloque de <code>15_dashboard_conocimientos.sql</code> (E34 a E45), y los valores coinciden sin filtros.</li>
-    <li><strong>Se pueden repetir:</strong> la simulación es determinista, el ETL es reejecutable sin duplicar (reejecución 1021: 0 filas) y todos los scripts están en el repositorio.</li>
-    <li><strong>Tamaño de los grupos:</strong> las comparaciones por zona usan entre 125.000 y 219.000 intervalos. Las de fallas usan entre 7 y 47 casos, por eso se reporta la mediana además de la media.</li>
-    <li><strong>Faltantes y anómalos:</strong> el 2,16 % de las filas se generó con defectos. Los nulos se imputaron y se marcaron, y las lecturas anómalas se conservaron marcadas. El bloque E44 compara el ahorro con y sin esas filas.</li>
-    <li><strong>Atípicos:</strong> las fallas más largas (bloque E45) se revisaron antes de interpretar la media, y no se descartaron.</li>
+    <li><strong>Se obtienen de los datos:</strong> cada visual del dashboard se recalcula en SQL con su bloque (E34 a E45). Sin filtros, el dashboard y SQL dan los mismos valores: 1.000.320 mediciones, 70,4 % de ahorro y 186 eventos críticos.</li>
+    <li><strong>Se pueden repetir:</strong> la simulación es determinista, el ETL se puede reejecutar sin duplicar (reejecución 1021: 0 filas) y todos los scripts están en el repositorio.</li>
+    <li><strong>Datos de prueba excluidos:</strong> las 3 mediciones y 2 eventos de origen PRUEBA, que se insertaron a propósito para probar los rechazos, no entran al análisis (vistas <code>pbi</code>).</li>
+    <li><strong>Tamaño de los grupos:</strong> las comparaciones por zona usan entre 156.250 y 437.820 intervalos, y las celdas del multivariado entre 1.920 y 72.808. Las fallas van de 7 a 61 casos por tipo; por eso se informa la mediana además de la media.</li>
+    <li><strong>Faltantes y anómalos (E44):</strong> el 95,73 % de los intervalos es original, el 1,76 % imputado, el 2,08 % anómalo y el 0,43 % imputado y anómalo. Este último grupo da un ahorro extremo (−1.081 %), así que se revisó: es pequeño y, al dejar solo los originales, el ahorro pasa de 70,44 % a 70,60 %. La conclusión no cambia y las filas se conservan marcadas.</li>
+    <li><strong>Atípicos (E45):</strong> las 8 fallas más largas (de 1.232 a 1.801 h) se revisaron antes de interpretar la media. Todas siguen abiertas, por eso no se descartan: se informan aparte y se comparan con la mediana.</li>
     <li><strong>Asociación, no causalidad:</strong> las relaciones entre presencia, zona, fallas y consumo se presentan como asociaciones observadas.</li>
   </ul>
   <figure class="figura">
@@ -460,25 +461,25 @@
   <h2><span>13</span> Decisiones</h2>
   <div class="decisiones">
     <article class="decision">
-      <h3>D1 · Revisar primero el LDR de las luminarias que encienden de día</h3>
+      <h3>D1 · Reparar el LDR de las luminarias que encienden de día y crear una alerta de encendido diurno</h3>
       <dl>
-        <dt>Acción</dt><dd>Programar mantenimiento correctivo de sensor para las luminarias con más energía diurna, empezando por AVC-L10. Agregar una alerta cuando una luminaria siga encendida de día durante más de 4 intervalos seguidos (1 h).</dd>
-        <dt>Respaldo</dt><dd>C2: ahorro diurno −14 %; AVC-L10 con 2.340 h encendida frente a unas 1.816 h de sus pares.</dd>
-        <dt>Dirigida a</dt><dd>Proceso de atención de fallas (supervisor Miguel Rojas) y técnicos de electrónica, en la Avenida Central primero.</dd>
-        <dt>Mejora esperada</dt><dd>Llevar el consumo diurno a cero y recuperar el ahorro perdido.</dd>
-        <dt>Indicador</dt><dd>«Encendida de día %» y «kWh de día» por semana. Meta: 0 %.</dd>
-        <dt>Limitaciones</dt><dd>La asociación con el LDR no prueba la causa. Hay que confirmar en campo antes de cambiar el sensor.</dd>
+        <dt>Acción</dt><dd>Mantenimiento correctivo de sensor para las 12 luminarias con consumo diurno, empezando por AVC-L10. Agregar una alerta crítica cuando una luminaria siga encendida de día más de 4 intervalos seguidos (1 h).</dd>
+        <dt>Respaldo</dt><dd>C2: AVC-L10 con 20,82 kWh de día y su falla LDR abierta hace 1.639,8 h; las 12 luminarias suman 30,1 kWh diurnos y todas tuvieron falla LDR; ninguno de los intervalos diurnos encendidos estaba marcado como falla.</dd>
+        <dt>Dirigida a</dt><dd>Proceso de atención de fallas (supervisor Miguel Rojas) y técnico de electrónica. Primero la Avenida Central y luego las zonas Hospitalaria, Barrio Norte y Plaza Central.</dd>
+        <dt>Mejora esperada</dt><dd>Consumo diurno cerca de cero y fallas del LDR detectadas el mismo día.</dd>
+        <dt>Indicador</dt><dd>«Encendida de día %» (hoy 0,81 %) y «kWh de día» por semana. Meta: menos de 0,1 % y alertas atendidas en menos de 24 h.</dd>
+        <dt>Limitaciones</dt><dd>La asociación con el LDR no prueba la causa: hay que confirmar en campo antes de cambiar el sensor. El umbral de 1 h es una propuesta que se debe calibrar.</dd>
       </dl>
     </article>
     <article class="decision">
-      <h3>D2 · Fijar un tiempo máximo de atención de 72 h para las fallas de comunicación, PIR, sobretensión y driver</h3>
+      <h3>D2 · Tiempo máximo de 72 h para fallas de sensores y driver, y cierre de las 12 fallas abiertas</h3>
       <dl>
-        <dt>Acción</dt><dd>Fijar un tiempo objetivo de 72 h para las fallas de comunicación, PIR, sobretensión y driver, y asignarlas por especialidad (redes para comunicación, electricistas para sobretensión y driver).</dd>
-        <dt>Respaldo</dt><dd>C4: promedios de 240 a 321 h para esos tipos, frente a 24 h de fusible y 50 h de LED fundido.</dd>
-        <dt>Dirigida a</dt><dd>Proceso de atención de fallas y gestión del mantenimiento.</dd>
-        <dt>Mejora esperada</dt><dd>Menos días de operación con sensores o drivers dañados, y más disponibilidad.</dd>
-        <dt>Indicador</dt><dd>Duración mediana por tipo de falla y número de fallas abiertas por más de 72 h. Meta: mediana por debajo de 72 h.</dd>
-        <dt>Limitaciones</dt><dd>Las duraciones son simuladas y los grupos son pequeños. El tiempo objetivo se debe recalibrar con datos reales.</dd>
+        <dt>Acción</dt><dd>Fijar 72 h como tiempo máximo de atención para las fallas de PIR, LDR y driver, asignadas por especialidad. Revisar y cerrar primero las 12 fallas abiertas, empezando por las 8 más largas, que superan las 1.200 h.</dd>
+        <dt>Respaldo</dt><dd>C4: medianas de 82 h (PIR), 80,4 h (LDR) y 65,2 h (driver), frente a una mediana general de 11,2 h. Las fallas abiertas elevan la media general a 137 h.</dd>
+        <dt>Dirigida a</dt><dd>Procesos de atención de fallas y gestión del mantenimiento; técnicos de electrónica y electricistas.</dd>
+        <dt>Mejora esperada</dt><dd>Menos días con sensores dañados, que además causan consumo innecesario (C2), y promedios que reflejen la operación real.</dd>
+        <dt>Indicador</dt><dd>Mediana de duración por tipo de falla (meta: menos de 72 h para PIR y LDR) y número de fallas abiertas por más de 72 h (hoy 12 abiertas).</dd>
+        <dt>Limitaciones</dt><dd>Las duraciones simuladas siguen reglas del equipo y los grupos son pequeños (7 a 15 por tipo). El tiempo máximo se debe recalibrar con datos reales.</dd>
       </dl>
     </article>
   </div>

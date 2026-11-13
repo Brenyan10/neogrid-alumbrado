@@ -5,6 +5,9 @@
    Power BI Desktop (modo Importar). No modifica tablas ni datos: solo
    expone las columnas que usa el dashboard, con nombres legibles.
 
+   Las filas de origen PRUEBA (insertadas a propósito en la prueba de
+   rechazos, ejecución 1020: 3 mediciones y 2 eventos) se excluyen.
+
    Uso: abrir en SSMS conectado a la instancia local y ejecutar TODO (F5).
    Se puede ejecutar varias veces (CREATE OR ALTER).
    ===================================================================== */
@@ -47,7 +50,8 @@ GO
 
 CREATE OR ALTER VIEW pbi.dim_origen AS
 SELECT origen_key, codigo AS origen, nombre AS origen_nombre
-FROM dbo.dim_origen;
+FROM dbo.dim_origen
+WHERE codigo <> 'PRUEBA';
 GO
 
 CREATE OR ALTER VIEW pbi.dim_calidad AS
@@ -86,7 +90,9 @@ SELECT f.fact_id, f.tiempo_key, f.hora_key, f.luminaria_key, f.ubicacion_key, f.
        f.nivel_luz_lux, f.detecciones, f.brillo_pct, f.potencia_w,
        f.energia_wh, f.energia_referencia_wh, f.ahorro_wh,
        CASE WHEN f.es_noche = 0 AND f.encendida = 1 THEN 1 ELSE 0 END AS encendida_de_dia
-FROM dbo.fact_operacion_luminaria f;
+FROM dbo.fact_operacion_luminaria f
+JOIN dbo.dim_origen o ON o.origen_key = f.origen_key
+WHERE o.codigo <> 'PRUEBA';   -- excluye las filas de la prueba de rechazos (ejecución 1020)
 GO
 
 -- Grano: una falla
@@ -95,7 +101,9 @@ SELECT f.falla_id, f.tiempo_deteccion_key AS tiempo_key, f.hora_deteccion_key AS
        f.luminaria_key, f.ubicacion_key, f.tipo_falla_key, f.origen_key,
        f.esta_abierta, f.horas_hasta_deteccion, f.horas_duracion, f.tiene_mantenimiento,
        f.costo_correctivo_cop
-FROM dbo.fact_falla f;
+FROM dbo.fact_falla f
+JOIN dbo.dim_origen o ON o.origen_key = f.origen_key
+WHERE o.codigo <> 'PRUEBA';
 GO
 
 -- Grano: un evento operativo
@@ -103,7 +111,9 @@ CREATE OR ALTER VIEW pbi.fact_evento AS
 SELECT f.evento_key, f.tiempo_key, f.hora_key, f.luminaria_key, f.ubicacion_key,
        f.tipo_evento_key, f.proceso_key, f.usuario_key, f.origen_key,
        f.accion_homologada, f.cantidad_eventos, f.es_critico, f.variacion_brillo_pct
-FROM dbo.fact_evento_operativo f;
+FROM dbo.fact_evento_operativo f
+JOIN dbo.dim_origen o ON o.origen_key = f.origen_key
+WHERE o.codigo <> 'PRUEBA';
 GO
 
 /* ---------- Comprobación ---------- */

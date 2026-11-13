@@ -85,9 +85,11 @@ GO
 /* ---------- Hechos ---------- */
 -- Grano: una luminaria en un intervalo de 15 minutos (1.000.320 filas)
 CREATE OR ALTER VIEW pbi.fact_operacion AS
-SELECT f.fact_id, f.tiempo_key, f.hora_key, f.luminaria_key, f.ubicacion_key, f.origen_key, f.calidad_key,
-       f.es_noche, f.encendida, f.en_falla, f.es_anomala,
-       f.nivel_luz_lux, f.detecciones, f.brillo_pct, f.potencia_w,
+-- Sin fact_id ni columnas que el dashboard no usa: cada columna con muchos valores
+-- distintos aumenta mucho la memoria que Power BI necesita para un millón de filas.
+SELECT f.tiempo_key, f.hora_key, f.luminaria_key, f.ubicacion_key, f.origen_key, f.calidad_key,
+       f.es_noche, f.encendida, f.en_falla,
+       f.detecciones, f.brillo_pct,
        f.energia_wh, f.energia_referencia_wh, f.ahorro_wh,
        CASE WHEN f.es_noche = 0 AND f.encendida = 1 THEN 1 ELSE 0 END AS encendida_de_dia
 FROM dbo.fact_operacion_luminaria f
@@ -108,7 +110,7 @@ GO
 
 -- Grano: un evento operativo
 CREATE OR ALTER VIEW pbi.fact_evento AS
-SELECT f.evento_key, f.tiempo_key, f.hora_key, f.luminaria_key, f.ubicacion_key,
+SELECT f.tiempo_key, f.hora_key, f.luminaria_key, f.ubicacion_key,
        f.tipo_evento_key, f.proceso_key, f.usuario_key, f.origen_key,
        f.accion_homologada, f.cantidad_eventos, f.es_critico, f.variacion_brillo_pct
 FROM dbo.fact_evento_operativo f

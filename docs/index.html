@@ -67,8 +67,8 @@
     <div><dt>Módulo</dt><dd>Alumbrado público de la maqueta de ciudad inteligente NeoGrid</dd></div>
     <div><dt>Programa académico</dt><dd>Ingeniería de Sistemas y Computación</dd></div>
     <div><dt>Sede o extensión</dt><dd>Universidad de Cundinamarca, Extensión Chía</dd></div>
-    <div><dt>Ciclo de formación</dt><dd data-pendiente>Por confirmar</dd></div>
-    <div><dt>Tipo de proyecto</dt><dd data-pendiente>Por confirmar</dd></div>
+    <div><dt>Ciclo de formación</dt><dd>Ciclo de producción (VII a IX semestre), línea de profundización en Big Data</dd></div>
+    <div><dt>Tipo de proyecto</dt><dd>Proyecto de aula aplicado, de desarrollo tecnológico (maqueta física y ecosistema de datos)</dd></div>
     <div><dt>Integrantes</dt><dd>Brayan Fabian Sánchez Sierra · Elkin Arévalo</dd></div>
     <div><dt>Asignatura y docente</dt><dd>Big Data · Edison Cañón</dd></div>
     <div><dt>Periodo de los datos</dt><dd>1 de mayo al 6 de noviembre de 2026 (simulación hasta el 10 de octubre; maqueta física hasta el 6 de noviembre)</dd></div>
@@ -158,37 +158,37 @@
       <h4>Comprensión del negocio</h4>
       <p>Se definió el problema del alumbrado, los seis procesos (monitoreo, control, atención de fallas, mantenimiento, consumo y seguimiento), sus responsables y las preguntas de análisis.</p>
       <p class="evidencia">Evidencias: maqueta en funcionamiento (E01), <code>10_usuarios_procesos.sql</code>, preguntas P1 a P5.</p>
-      <p class="fecha" data-pendiente>Fecha por confirmar</p>
+      <p class="fecha"><strong>28 – 31 oct 2026</strong> · Armado y puesta en marcha de la maqueta, definición del módulo y de sus procesos</p>
     </li>
     <li>
       <h4>Comprensión de los datos</h4>
       <p>Se estudiaron las lecturas reales de la maqueta (MQTT → NeoGridAlumbrado): luz, presencia, brillo, estado y eventos, y sus problemas (mensajes repetidos del PIR, mayúsculas distintas en los eventos).</p>
       <p class="evidencia">Evidencias: E03 a E06, <code>07_integracion_maqueta.sql</code>.</p>
-      <p class="fecha" data-pendiente>Fecha por confirmar</p>
+      <p class="fecha"><strong>3 – 4 nov 2026</strong> · Lecturas de la maqueta por MQTT y revisión de su calidad</p>
     </li>
     <li>
       <h4>Preparación de los datos</h4>
       <p>Modelo relacional (25 tablas), simulación de 1.000.000 de mediciones, data warehouse en estrella y paquete SSIS que valida, homologa, imputa, rechaza y carga sin duplicar.</p>
       <p class="evidencia">Evidencias: scripts 01 a 11, paquete <code>ETL_NeoGrid.dtsx</code>, E07 a E22.</p>
-      <p class="fecha" data-pendiente>Fecha por confirmar</p>
+      <p class="fecha"><strong>4 – 11 nov 2026</strong> · Modelo relacional y simulación (4 nov), data warehouse (4 nov), integración de la maqueta (5 nov), usuarios, procesos, estrella de eventos y ETL en SSIS (11 nov)</p>
     </li>
     <li>
       <h4>Modelado y análisis</h4>
       <p>Consultas analíticas sobre el data warehouse y dashboard de Power BI con indicadores, análisis univariados, bivariados y multivariado.</p>
       <p class="evidencia">Evidencias: <code>13_consultas_analiticas.sql</code> (E24 a E33), <code>14_powerbi_vistas.sql</code>, dashboard publicado.</p>
-      <p class="fecha" data-pendiente>Fecha por confirmar</p>
+      <p class="fecha"><strong>11 – 13 nov 2026</strong> · Consultas analíticas (11 nov) y dashboard de Power BI (12 – 13 nov)</p>
     </li>
     <li>
       <h4>Evaluación</h4>
       <p>42 pruebas de calidad e integridad, prueba de rechazos, reejecución sin duplicados y conciliación de cada visual del dashboard con su consulta SQL.</p>
       <p class="evidencia">Evidencias: <code>08_validacion.sql</code> (42/42), <code>15_dashboard_conocimientos.sql</code> (E34 a E45).</p>
-      <p class="fecha" data-pendiente>Fecha por confirmar</p>
+      <p class="fecha"><strong>11 – 13 nov 2026</strong> · 42 pruebas de validación (11 nov) y conciliación del dashboard con SQL (13 nov)</p>
     </li>
     <li>
       <h4>Despliegue</h4>
       <p>Tablero web de la maqueta en Render, dashboard de Power BI integrado y este sitio publicado en GitHub Pages.</p>
       <p class="evidencia">Evidencias: <a href="https://neogrid-alumbrado.onrender.com">neogrid-alumbrado.onrender.com</a>, sección <a href="#dashboard">Dashboard</a>.</p>
-      <p class="fecha" data-pendiente>Fecha por confirmar</p>
+      <p class="fecha"><strong>5 – 13 nov 2026</strong> · Tablero web en Render (5 – 6 nov), informe y repositorio (11 nov), sitio y Power BI publicados (13 nov)</p>
     </li>
   </ol>
 </section>

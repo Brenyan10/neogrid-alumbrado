@@ -337,9 +337,9 @@
   <h2><span>10</span> Dashboard Power BI</h2>
   <p>El dashboard tiene cuatro páginas: Resumen, Univariados, Bivariados y Multivariado. Los filtros de fecha, zona, origen y tipo de día están en todas las páginas, y al hacer clic en una barra se filtran los demás visuales.</p>
   <div class="pbi" id="pbi">
-    <!-- PBI_IFRAME -->
-    <p class="pbi__aviso">El dashboard interactivo se integra aquí cuando quede publicado en el servicio de Power BI.</p>
+    <iframe title="Dashboard NeoGrid · Alumbrado público (Power BI)" src="https://app.powerbi.com/view?r=eyJrIjoiMmRiZmM2OWUtM2EzZi00ZjZlLWEwYmMtYzdjZDgyOTk4YzlmIiwidCI6IjA3ZGE2N2EwLTFmNDMtNGU4Yy05NzdmLTVmODhiNjQ3MGVlNiIsImMiOjR9" allowfullscreen="true" loading="lazy"></iframe>
   </div>
+  <p class="nota-pbi">Use las pestañas de la parte inferior del dashboard para cambiar de página. Si no se ve bien en el celular, <a href="https://app.powerbi.com/view?r=eyJrIjoiMmRiZmM2OWUtM2EzZi00ZjZlLWEwYmMtYzdjZDgyOTk4YzlmIiwidCI6IjA3ZGE2N2EwLTFmNDMtNGU4Yy05NzdmLTVmODhiNjQ3MGVlNiIsImMiOjR9" target="_blank" rel="noopener">ábralo en pantalla completa</a>.</p>
   <div class="tabla-desplazable">
   <table class="tabla-compacta">
     <thead><tr><th>Componente</th><th>Visual</th><th>Pregunta</th></tr></thead>
@@ -351,7 +351,7 @@
       <tr><td>Bivariado B1</td><td>Energía y ahorro según la hora</td><td>P1, P2</td></tr>
       <tr><td>Bivariado B2</td><td>Presencia y ahorro por tipo de zona</td><td>P3</td></tr>
       <tr><td>Bivariado B3</td><td>Duración media y mediana por tipo de falla</td><td>P4</td></tr>
-      <tr><td>Multivariado M1</td><td>Ahorro por tipo de zona × franja × tipo de día, calculado sobre la combinación</td><td>P3</td></tr>
+      <tr><td>Multivariado M1</td><td>Matriz de ahorro (%) por tipo de zona y franja (filas) × tipo de día (columnas), calculada sobre la combinación; al hacer clic en una fila se filtra el gráfico de presencia</td><td>P3</td></tr>
     </tbody>
   </table>
   </div>
@@ -384,7 +384,7 @@
       <dt>Pregunta</dt><dd>P2. ¿Qué luminarias consumen energía de día y eso se asocia a fallas del LDR?</dd>
       <dt>Variables</dt><dd>Luminaria, zona, es_noche, encendida, en_falla, energía (Wh), fallas por tipo.</dd>
       <dt>Procedimiento</dt><dd>Se filtran los intervalos de día con la luminaria encendida, se suma la energía por luminaria y se cruza con las fallas LECTURA_LDR (tabla del Resumen, bloque E42). Luego se compara el encendido diurno en intervalos marcados y no marcados como falla (bloque E43).</dd>
-      <dt>Resultado</dt><dd>El 0,81 % de los intervalos de día tiene la luminaria encendida, y por eso el ahorro de cada hora diurna es −14 %. <strong>AVC-L10</strong> consumió <strong>20,82 kWh</strong> de día (533,8 h), ocho veces más que la siguiente (AVC-L01, 2,46 kWh). <strong>Las 12 luminarias</strong> con más consumo diurno tuvieron una falla LECTURA_LDR, y la de AVC-L10 sigue abierta tras 1.639,8 h. Los 4.331 intervalos diurnos encendidos ocurrieron en intervalos <strong>no marcados</strong> como falla (0 en los marcados).</dd>
+      <dt>Resultado</dt><dd>El 0,81 % de los intervalos de día tiene la luminaria encendida, y por eso el ahorro de cada hora diurna es −14 %. <strong>AVC-L10</strong> consumió <strong>20,82 kWh</strong> de día (533,8 h), ocho veces más que la siguiente (AVC-L01, 2,46 kWh). <strong>Las 12 luminarias</strong> con más consumo diurno tuvieron una falla LECTURA_LDR, y la de AVC-L10 sigue abierta tras 1.639,8 h. Los 4.331 intervalos diurnos encendidos ocurrieron en intervalos <strong>no marcados</strong> como falla (0 en los marcados). En el multivariado, la zona vial (donde está AVC-L10) llega a −56,1 % de ahorro en las mañanas y tardes de días laborales.</dd>
       <dt>Hallazgo</dt><dd>El desperdicio diurno se concentra en pocas luminarias, todas con falla del LDR, y el campo en_falla no lo refleja.</dd>
       <dt>Interpretación</dt><dd>Una falla del LDR no apaga la calle: hace que el control crea que es de noche. Como la luminaria «funciona», el monitoreo no la marca y el gasto pasa inadvertido.</dd>
       <dt>Utilidad</dt><dd>Indica qué luminarias revisar primero y qué alerta falta en el monitoreo (Decisión 1).</dd>

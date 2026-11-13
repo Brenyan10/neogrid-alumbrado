@@ -145,6 +145,7 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 /* Dashboard */
 .pbi { position: relative; width: 100%; aspect-ratio: 16 / 9.9; background: var(--superficie); border: 1px solid var(--linea); border-radius: 12px; overflow: hidden; margin: 12px 0 16px; display: grid; place-items: center; }
 .pbi iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.nota-pbi { font-size: .9rem; color: var(--suave); margin: -4px 0 14px; }
 .pbi__aviso { color: var(--suave); padding: 24px; text-align: center; }
 .tabla-compacta td { font-size: .9rem; }
 
@@ -199,7 +200,7 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
   .ficha-c { grid-template-columns: 1fr; }
   .ficha-c dt { margin-top: 6px; }
   .portada__texto { position: static; background: #0b1220; padding: 20px 16px; }
-  .pbi { aspect-ratio: 9 / 16; }
+  .pbi { aspect-ratio: 4 / 3; }
   .grafico-img { overflow-x: auto; }
   .grafico-img img { min-width: 640px; }
 }

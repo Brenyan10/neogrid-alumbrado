@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NeoGrid · Alumbrado público inteligente</title>
+<meta name="description" content="Proyecto de Gestión del Conocimiento del módulo de alumbrado público de la maqueta de ciudad inteligente NeoGrid: datos, dashboard de Power BI, conocimientos y decisiones.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+<a class="saltar" href="#contenido">Saltar al contenido</a>
+
+<header class="cabecera">
+  <div class="cabecera__marca">
+    <span class="logo" aria-hidden="true"></span>
+    <div>
+      <strong>NeoGrid</strong>
+      <span>Alumbrado público inteligente</span>
+    </div>
+  </div>
+  <button class="menu-boton" aria-expanded="false" aria-controls="menu">Menú</button>
+</header>
+
+<div class="marco">
+<nav id="menu" class="menu" aria-label="Secciones del proyecto">
+  <p class="menu__grupo">Proyecto (PGC)</p>
+  <a href="#identificacion">1. Identificación</a>
+  <a href="#problema">2. Planteamiento del problema</a>
+  <a href="#justificacion">3. Justificación</a>
+  <a href="#objetivos">4. Objetivos</a>
+  <a href="#marco">5. Marco referencial</a>
+  <a href="#metodologia">6. Metodología y cronograma</a>
+  <a href="#solucion">7. Desarrollo de la solución</a>
+  <a href="#datos">8. Gestión de los datos</a>
+  <p class="menu__grupo">Análisis</p>
+  <a href="#preparacion">9. Preparación del análisis</a>
+  <a href="#dashboard">10. Dashboard Power BI</a>
+  <a href="#conocimientos">11. Conocimientos evidentes</a>
+  <a href="#validacion">12. Validación</a>
+  <a href="#decisiones">13. Decisiones</a>
+  <p class="menu__grupo">Cierre</p>
+  <a href="#resultados">14. Productos y resultados</a>
+  <a href="#conclusiones">15. Conclusiones</a>
+  <a href="#referencias">16. Referencias</a>
+</nav>
+
+<main id="contenido">
+
+<!-- ============ PORTADA ============ -->
+<section class="portada">
+  <img src="img/maqueta.webp" alt="Maqueta NeoGrid de noche: postes encendidos en dos tableros y ocho casas sin techo con sus LED" width="1600" height="975">
+  <div class="portada__texto">
+    <p class="etiqueta">Proyecto de Gestión del Conocimiento · Big Data</p>
+    <h1>Ecosistema de datos para el alumbrado público inteligente de NeoGrid</h1>
+    <p>De dieciséis postes de una maqueta a un millón de mediciones, un data warehouse, un dashboard y decisiones de operación respaldadas por datos.</p>
+  </div>
+</section>
+
+<!-- ============ 1 IDENTIFICACIÓN ============ -->
+<section id="identificacion">
+  <h2><span>1</span> Identificación</h2>
+  <dl class="ficha">
+    <div><dt>Título</dt><dd>Ecosistema de datos para el alumbrado público inteligente de NeoGrid: modelo relacional, simulación de un millón de mediciones, data warehouse, ETL en SSIS y análisis en Power BI</dd></div>
+    <div><dt>Módulo</dt><dd>Alumbrado público de la maqueta de ciudad inteligente NeoGrid</dd></div>
+    <div><dt>Programa académico</dt><dd>Ingeniería de Sistemas y Computación</dd></div>
+    <div><dt>Sede o extensión</dt><dd>Universidad de Cundinamarca, Extensión Chía</dd></div>
+    <div><dt>Ciclo de formación</dt><dd data-pendiente>Por confirmar</dd></div>
+    <div><dt>Tipo de proyecto</dt><dd data-pendiente>Por confirmar</dd></div>
+    <div><dt>Integrantes</dt><dd>Brayan Fabian Sánchez Sierra · Elkin Arévalo</dd></div>
+    <div><dt>Asignatura y docente</dt><dd>Big Data · Edison Cañón</dd></div>
+    <div><dt>Periodo de los datos</dt><dd>1 de mayo al 10 de octubre de 2026</dd></div>
+  </dl>
+</section>
+
+<!-- ============ 2 PROBLEMA ============ -->
+<section id="problema">
+  <h2><span>2</span> Planteamiento del problema</h2>
+  <p class="destacado">El alumbrado público gasta energía cuando nadie la necesita y, cuando una luminaria falla, la calle queda sin servicio hasta que alguien lo detecta y lo repara.</p>
+  <p>Un alumbrado convencional enciende todas las luminarias al 100 % desde el anochecer hasta el amanecer, aunque a las 3 de la madrugada no pase nadie. Además, una luminaria con el sensor de luz dañado puede quedar encendida todo el día sin que nadie lo note, y una falla de comunicación o de alimentación puede tardar días en atenderse si no hay un registro que la haga visible.</p>
+  <p>NeoGrid es la maqueta de ciudad inteligente del curso. El módulo de alumbrado tiene 16 postes en dos tableros (Oeste y Este), cada uno controlado por un ESP32 con un sensor de luz (LDR) y un sensor de movimiento (PIR), y 8 casas con LED. El controlador enciende los postes al oscurecer, baja el brillo en la madrugada y lo sube cuando detecta presencia. El problema de datos es que esas lecturas, por sí solas, no dicen cuánto se ahorra, dónde se desperdicia ni qué fallas pesan más. Para responderlo hace falta modelarlas, darles volumen, cargarlas en un data warehouse y analizarlas.</p>
+</section>
+
+<!-- ============ 3 JUSTIFICACIÓN ============ -->
+<section id="justificacion">
+  <h2><span>3</span> Justificación</h2>
+  <div class="columnas">
+    <div>
+      <h3>Población beneficiaria</h3>
+      <ul>
+        <li><strong>Habitantes y peatones</strong> de las zonas iluminadas: residenciales, comerciales, hospitalaria y vial, que necesitan luz cuando hay presencia y continuidad del servicio.</li>
+        <li><strong>Operadores y supervisores</strong> del alumbrado, que necesitan saber qué falla, dónde y desde cuándo.</li>
+        <li><strong>Técnicos de mantenimiento</strong>, que reciben órdenes priorizadas.</li>
+        <li><strong>La entidad que paga la energía</strong>, que necesita medir el ahorro.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Pertinencia</h3>
+      <p>La modernización del alumbrado con LED y telegestión es una política activa en Colombia. En octubre de 2026 la Alcaldía de Bogotá anunció más de 100.000 nodos de telegestión, que permiten ajustar el brillo, programar el encendido y detectar fallas a distancia, con un consumo hasta 70 % menor que las luminarias de sodio (<a href="#ref-bogota">Alcaldía de Bogotá, 2026</a>).</p>
+      <p>El proyecto reproduce a escala ese escenario y demuestra la parte que suele faltar: convertir los datos de la telegestión en conocimiento verificable para decidir.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 4 OBJETIVOS ============ -->
+<section id="objetivos">
+  <h2><span>4</span> Objetivos</h2>
+  <h3>Objetivo general</h3>
+  <p>Construir, analizar y publicar un ecosistema de datos para el módulo de alumbrado público de NeoGrid, que integre un modelo relacional, un millón de mediciones simuladas, un data warehouse cargado por SSIS y un dashboard de Power BI, para generar hallazgos verificables que sustenten decisiones de operación.</p>
+  <h3>Objetivos específicos</h3>
+  <ol class="lista-objetivos">
+    <li>Diseñar un modelo relacional normalizado que relacione usuarios, procesos, dispositivos, mediciones y eventos del alumbrado.</li>
+    <li>Simular de forma reproducible 1.000.000 de mediciones coherentes con el control de la maqueta.</li>
+    <li>Construir un data warehouse en estrella y un ETL en SSIS con validación, homologación, rechazos y carga incremental.</li>
+    <li>Analizar los datos en un dashboard de Power BI con indicadores, análisis univariados, bivariados y multivariado.</li>
+    <li>Documentar cinco conocimientos evidentes y dos decisiones sustentadas, y validar que cada uno se obtiene de los datos.</li>
+  </ol>
+</section>
+
+<!-- ============ 5 MARCO REFERENCIAL ============ -->
+<section id="marco">
+  <h2><span>5</span> Marco referencial</h2>
+  <h3>Antecedentes</h3>
+  <div class="tarjetas">
+    <article class="tarjeta">
+      <h4>Alumbrado adaptativo con sensado de tráfico</h4>
+      <p>Lau, Merrett y White (2013) propusieron un esquema que ajusta el brillo de cada poste según el tráfico detectado. En simulaciones con SUMO y OMNeT++ consumió hasta 30 % menos energía que los esquemas existentes de atenuación o apagado.</p>
+      <p class="aporte"><strong>Aporte al proyecto:</strong> la regla «baja el brillo sin presencia, súbelo con presencia» que usa la maqueta y la simulación.</p>
+    </article>
+    <article class="tarjeta">
+      <h4>Sensores autónomos en red para ciudades inteligentes</h4>
+      <p>Lau et al. (2015) evaluaron sobre la topología real de un barrio residencial un esquema con sensores en red. Reportaron que puede usar apenas el 1 a 2 % de la energía de las técnicas convencionales, con utilidad similar o mejor para los usuarios.</p>
+      <p class="aporte"><strong>Aporte al proyecto:</strong> medir el ahorro contra una referencia (luminaria al 100 %), que es la medida «Ahorro %» del dashboard.</p>
+    </article>
+    <article class="tarjeta">
+      <h4>Telegestión del alumbrado en Bogotá</h4>
+      <p>El acuerdo «Ciudad Inteligente» de Bogotá instala un nodo de telegestión por punto de luz para controlar el brillo y los horarios a distancia y detectar fallas más rápido. La UAESP estima hasta 70 % menos consumo frente al sodio.</p>
+      <p class="aporte"><strong>Aporte al proyecto:</strong> el contexto local y los dos procesos que se analizan: control del consumo y atención de fallas.</p>
+    </article>
+  </div>
+  <h3>Bases conceptuales</h3>
+  <ul>
+    <li><strong>Modelo relacional y normalización</strong> (Codd, 1970): tablas, claves y restricciones que protegen la integridad.</li>
+    <li><strong>Modelado dimensional</strong> (Kimball y Ross, 2013): hechos con un grano explícito, dimensiones conformadas y miembros desconocidos.</li>
+    <li><strong>ETL con SSIS</strong> (Microsoft, s. f.-b): flujo de control, flujos de datos, búsquedas de claves y salidas de error.</li>
+    <li><strong>CRISP-DM</strong> (Chapman et al., 2000): las seis fases que organizan la metodología del proyecto.</li>
+  </ul>
+</section>
+
+<!-- ============ 6 METODOLOGÍA ============ -->
+<section id="metodologia">
+  <h2><span>6</span> Metodología y cronograma (CRISP-DM)</h2>
+  <p>El proyecto siguió las seis fases de CRISP-DM. Cada fase dejó productos y evidencias que se pueden revisar en el <a href="https://github.com/Brenyan10/neogrid-alumbrado">repositorio</a> y en el informe técnico.</p>
+  <ol class="fases">
+    <li>
+      <h4>Comprensión del negocio</h4>
+      <p>Se definió el problema del alumbrado, los seis procesos (monitoreo, control, atención de fallas, mantenimiento, consumo y seguimiento), sus responsables y las preguntas de análisis.</p>
+      <p class="evidencia">Evidencias: maqueta en funcionamiento (E01), <code>10_usuarios_procesos.sql</code>, preguntas P1 a P5.</p>
+      <p class="fecha" data-pendiente>Fecha por confirmar</p>
+    </li>
+    <li>
+      <h4>Comprensión de los datos</h4>
+      <p>Se estudiaron las lecturas reales de la maqueta (MQTT → NeoGridAlumbrado): luz, presencia, brillo, estado y eventos, y sus problemas (mensajes repetidos del PIR, mayúsculas distintas en los eventos).</p>
+      <p class="evidencia">Evidencias: E03 a E06, <code>07_integracion_maqueta.sql</code>.</p>
+      <p class="fecha" data-pendiente>Fecha por confirmar</p>
+    </li>
+    <li>
+      <h4>Preparación de los datos</h4>
+      <p>Modelo relacional (25 tablas), simulación de 1.000.000 de mediciones, data warehouse en estrella y paquete SSIS que valida, homologa, imputa, rechaza y carga sin duplicar.</p>
+      <p class="evidencia">Evidencias: scripts 01 a 11, paquete <code>ETL_NeoGrid.dtsx</code>, E07 a E22.</p>
+      <p class="fecha" data-pendiente>Fecha por confirmar</p>
+    </li>
+    <li>
+      <h4>Modelado y análisis</h4>
+      <p>Consultas analíticas sobre el data warehouse y dashboard de Power BI con indicadores, análisis univariados, bivariados y multivariado.</p>
+      <p class="evidencia">Evidencias: <code>13_consultas_analiticas.sql</code> (E24 a E33), <code>14_powerbi_vistas.sql</code>, dashboard publicado.</p>
+      <p class="fecha" data-pendiente>Fecha por confirmar</p>
+    </li>
+    <li>
+      <h4>Evaluación</h4>
+      <p>42 pruebas de calidad e integridad, prueba de rechazos, reejecución sin duplicados y conciliación de cada visual del dashboard con su consulta SQL.</p>
+      <p class="evidencia">Evidencias: <code>08_validacion.sql</code> (42/42), <code>15_dashboard_conocimientos.sql</code> (E34 a E45).</p>
+      <p class="fecha" data-pendiente>Fecha por confirmar</p>
+    </li>
+    <li>
+      <h4>Despliegue</h4>
+      <p>Tablero web de la maqueta en Render, dashboard de Power BI integrado y este sitio publicado en GitHub Pages.</p>
+      <p class="evidencia">Evidencias: <a href="https://neogrid-alumbrado.onrender.com">neogrid-alumbrado.onrender.com</a>, sección <a href="#dashboard">Dashboard</a>.</p>
+      <p class="fecha" data-pendiente>Fecha por confirmar</p>
+    </li>
+  </ol>
+</section>
+
+<!-- ============ 7 SOLUCIÓN ============ -->
+<section id="solucion">
+  <h2><span>7</span> Desarrollo de la solución</h2>
+  <h3>Arquitectura</h3>
+  <figure class="figura">
+    <img src="img/arquitectura.webp" alt="Diagrama: ESP32 de la maqueta, Mosquitto MQTT, suscriptor Python, NeoGridAlumbrado, puente hacia NeoGridRelacional junto con la simulación, ETL SSIS, NeoGridDW y tablero web" loading="lazy" width="1600" height="223">
+    <figcaption>Los datos reales entran por MQTT. NeoGridAlumbrado, la base de la maqueta, no se modifica. NeoGridRelacional une los datos físicos con la simulación, y SSIS carga NeoGridDW, que alimenta el tablero web y Power BI.</figcaption>
+  </figure>
+
+  <div class="columnas">
+    <div>
+      <h3>Dispositivos</h3>
+      <table>
+        <thead><tr><th>Dispositivo</th><th>Cantidad</th><th>Función</th></tr></thead>
+        <tbody>
+          <tr><td>ESP32 (tableros Oeste y Este)</td><td class="num">2</td><td>Leen los sensores, controlan los postes y publican por MQTT</td></tr>
+          <tr><td>Postes LED físicos</td><td class="num">16</td><td>8 por tablero, con brillo regulable</td></tr>
+          <tr><td>Luminarias en el modelo</td><td class="num">64</td><td>16 físicas y 48 solo simuladas, en 6 zonas</td></tr>
+          <tr><td>Sensores en el modelo</td><td class="num">45</td><td>LDR (luz), PIR (presencia) y medidores</td></tr>
+          <tr><td>Casas con LED</td><td class="num">8</td><td>Dos LED cada una</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <h3>Funcionalidades</h3>
+      <ul>
+        <li>Encendido automático cuando la luz baja de 40 lux.</li>
+        <li>Brillo de 25 % en la noche y 15 % de 2 a 5 a. m., que sube hacia 100 % al detectar presencia.</li>
+        <li>Registro de fallas, mantenimientos y eventos con el usuario que actúa.</li>
+        <li>Cálculo de energía consumida, energía de referencia y ahorro.</li>
+        <li>Tablero web en vivo y dashboard analítico.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Usuarios y procesos</h3>
+  <p>Hay 11 usuarios con su rol (el sistema automático, 2 operadores, 1 supervisor, 5 técnicos, 1 administrador y 1 analista). Cada proceso tiene un único responsable, y cada acción queda ligada a un usuario.</p>
+  <div class="tabla-desplazable">
+  <table>
+    <thead><tr><th>Proceso</th><th>Responsable</th><th>Quién actúa</th></tr></thead>
+    <tbody>
+      <tr><td>Monitoreo de la red y los sensores</td><td>Andrea Gómez (operadora)</td><td>El sistema registra lecturas y desconexiones</td></tr>
+      <tr><td>Control adaptativo del alumbrado</td><td>Brayan Sánchez (administrador)</td><td>El sistema enciende y ajusta el brillo</td></tr>
+      <tr><td>Atención de fallas</td><td>Miguel Rojas (supervisor)</td><td>Los operadores registran y los técnicos reparan</td></tr>
+      <tr><td>Gestión del mantenimiento</td><td>Miguel Rojas (supervisor)</td><td>Los técnicos ejecutan las órdenes</td></tr>
+      <tr><td>Consumo</td><td>Elkin Arévalo (analista)</td><td>El sistema calcula el consumo diario</td></tr>
+      <tr><td>Seguimiento</td><td>Elkin Arévalo (analista)</td><td>ETL, data warehouse y tableros</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Tecnologías</h3>
+  <ul class="chips">
+    <li>ESP32 · Arduino</li><li>MQTT (Mosquitto)</li><li>Python</li><li>SQL Server 2025</li><li>SSMS 22</li>
+    <li>SSIS (Visual Studio 2026)</li><li>Power BI</li><li>Flask · Render</li><li>GitHub Pages</li>
+  </ul>
+</section>
+
+<!-- ============ 8 DATOS ============ -->
+<section id="datos">
+  <h2><span>8</span> Gestión de los datos</h2>
+
+  <h3>Modelo relacional · NeoGridRelacional</h3>
+  <p>25 tablas en tercera forma normal, con 42 claves foráneas y 33 restricciones CHECK que aplican las reglas de negocio dentro del motor. El modelo une catálogos, dispositivos, usuarios y procesos, mediciones y eventos, y cada fila indica su origen (simulado, físico, calculado o prueba).</p>
+  <figure class="figura figura--alta">
+    <a href="img/relacional.webp"><img src="img/relacional.webp" alt="Diagrama entidad-relación de las 25 tablas de NeoGridRelacional" loading="lazy" width="2000" height="2637"></a>
+    <figcaption>Diagrama relacional. Clic para ampliar.</figcaption>
+  </figure>
+
+  <h3>Simulación del millón de mediciones</h3>
+  <div class="cifras">
+    <div><strong>1.000.000</strong><span>mediciones: 64 luminarias × 15.625 intervalos</span></div>
+    <div><strong>15 min</strong><span>entre mediciones, sin huecos ni duplicados</span></div>
+    <div><strong>2,16 %</strong><span>de filas con defectos a propósito para probar el ETL</span></div>
+  </div>
+  <p>La simulación es determinista: con el mismo script se obtienen los mismos datos. Sigue las reglas de control de la maqueta: si la luz baja de 40 lux es de noche y la luminaria enciende al 25 % (15 % de 2 a 5 a. m.) y sube hacia 100 % con presencia. La presencia cambia según la zona, la hora, el fin de semana y la lluvia. También se generaron 81 fallas de 7 tipos, 426 mantenimientos y 634 horas de lluvia.</p>
+
+  <h3>Modelo multidimensional · NeoGridDW</h3>
+  <p>Una constelación de dos estrellas que comparten dimensiones conformadas (fecha, hora, luminaria, ubicación, origen):</p>
+  <div class="columnas">
+    <figure class="figura">
+      <a href="img/estrella_operacion.webp"><img src="img/estrella_operacion.webp" alt="Estrella de operación de luminarias" loading="lazy" width="2000" height="2135"></a>
+      <figcaption><strong>fact_operacion_luminaria</strong>. Grano: una luminaria en un intervalo de 15 minutos. 1.000.320 filas.</figcaption>
+    </figure>
+    <figure class="figura">
+      <a href="img/estrella_eventos.webp"><img src="img/estrella_eventos.webp" alt="Estrella de eventos operativos" loading="lazy" width="2000" height="2218"></a>
+      <figcaption><strong>fact_evento_operativo</strong>. Grano: un evento. 66.562 filas.</figcaption>
+    </figure>
+  </div>
+  <p>Hay también agregados diario (10.512 filas) y horario (228.854 filas) con los mismos totales, y hechos de fallas y mantenimientos. Las dimensiones se actualizan con MERGE (SCD tipo 1) y tienen un miembro desconocido con clave 0.</p>
+
+  <h3>Proceso ETL en SSIS</h3>
+  <div class="columnas columnas--etl">
+    <figure class="figura">
+      <img src="img/flujo_control.webp" alt="Flujo de control del paquete ETL_NeoGrid" loading="lazy" width="1389" height="1239">
+      <figcaption>Flujo de control de <code>ETL_NeoGrid.dtsx</code>: las dimensiones se cargan antes que los hechos.</figcaption>
+    </figure>
+    <div>
+      <ul>
+        <li><strong>Validación:</strong> duplicados, fechas inválidas, brillo fuera de 0 a 100 % y valores imposibles.</li>
+        <li><strong>Limpieza:</strong> imputación de nulos (tensión 220 V, potencia según el modelo) y conversión de tipos.</li>
+        <li><strong>Homologación:</strong> la simulación y la maqueta nombran distinto las acciones. El ETL las traduce a un mismo vocabulario (SUBE_BRILLO, BAJA_BRILLO, ANOCHECER, PRESENCIA…).</li>
+        <li><strong>Atributos generados:</strong> energía de referencia, ahorro y calidad del dato.</li>
+        <li><strong>Búsqueda de claves:</strong> 8 dimensiones para mediciones y 10 para eventos. Lo que no encaja va a <code>etl_rechazo</code> con su motivo.</li>
+        <li><strong>Carga incremental:</strong> marca de agua en <code>etl_control</code>, así que reejecutar no duplica.</li>
+      </ul>
+      <figure class="figura">
+        <img src="img/ssis_eventos_carga.webp" alt="Ejecución del flujo DFT_Eventos en Visual Studio: 66.562 filas insertadas y 395 rechazadas" loading="lazy" width="585" height="347">
+        <figcaption>Ejecución real en Visual Studio: 66.562 eventos insertados y 395 rechazados.</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 9 PREPARACIÓN ============ -->
+<section id="preparacion">
+  <h2><span>9</span> Preparación del análisis</h2>
+  <p>El dashboard lee el data warehouse después de la carga SSIS (ejecución 1015), a través de vistas de solo lectura del esquema <code>pbi</code> (<code>14_powerbi_vistas.sql</code>), en modo Importar.</p>
+  <div class="tabla-desplazable">
+  <table>
+    <tbody>
+      <tr><th scope="row">Fuente</th><td>NeoGridDW en SQL Server 2025, cargado por el paquete SSIS <code>ETL_NeoGrid.dtsx</code></td></tr>
+      <tr><th scope="row">Periodo</th><td>1 de mayo al 10 de octubre de 2026 (simulación) más las sesiones registradas de la maqueta física</td></tr>
+      <tr><th scope="row">Registros</th><td>1.000.320 mediciones de 15 min · 66.562 eventos operativos · 128 fallas (81 simuladas y 47 físicas)</td></tr>
+      <tr><th scope="row">Variables</th><td>Fecha, hora, franja, tipo de día, luminaria, zona, tipo de zona, origen, calidad del dato · brillo (%), luz (lux), detecciones, energía y energía de referencia (Wh), ahorro (Wh), en falla, encendida · tipo y duración de falla (h) · acción homologada, proceso, usuario, crítico</td></tr>
+      <tr><th scope="row">Reglas de calidad</th><td>Sin duplicados por luminaria e intervalo; brillo entre 0 y 100 %; fechas dentro del periodo; nulos imputados y marcados; lecturas anómalas marcadas, no borradas; filas sin dimensión válida rechazadas con su motivo; 42 pruebas de integridad aprobadas</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h3>Preguntas que guían el análisis</h3>
+  <ol class="preguntas">
+    <li><strong>P1.</strong> ¿Cuánta energía ahorra la atenuación adaptativa frente a operar al 100 % y en qué horas se concentra el ahorro?</li>
+    <li><strong>P2.</strong> ¿Qué luminarias consumen energía de día y eso se asocia a fallas del sensor de luz?</li>
+    <li><strong>P3.</strong> ¿Difieren las zonas en presencia y ahorro, y cambia según la franja y el tipo de día?</li>
+    <li><strong>P4.</strong> ¿Qué tipos de falla tardan más en resolverse?</li>
+    <li><strong>P5.</strong> ¿Quién genera los eventos operativos y cuántos son críticos?</li>
+  </ol>
+</section>
+
+<!-- ============ 10 DASHBOARD ============ -->
+<section id="dashboard">
+  <h2><span>10</span> Dashboard Power BI</h2>
+  <p>El dashboard tiene cuatro páginas: Resumen, Univariados, Bivariados y Multivariado. Los filtros de fecha, zona, origen y tipo de día están en todas las páginas, y al hacer clic en una barra se filtran los demás visuales.</p>
+  <div class="pbi" id="pbi">
+    <!-- PBI_IFRAME -->
+    <p class="pbi__aviso">El dashboard interactivo se integra aquí cuando quede publicado en el servicio de Power BI.</p>
+  </div>
+  <div class="tabla-desplazable">
+  <table class="tabla-compacta">
+    <thead><tr><th>Componente</th><th>Visual</th><th>Pregunta</th></tr></thead>
+    <tbody>
+      <tr><td>6 indicadores</td><td>Mediciones · Energía (kWh) · Ahorro (%) · Disponibilidad (%) · Fallas y duración mediana (h) · Eventos y % críticos</td><td>P1 a P5</td></tr>
+      <tr><td>Univariado U1</td><td>Distribución del brillo nocturno (% de intervalos)</td><td>P1</td></tr>
+      <tr><td>Univariado U2</td><td>Fallas por rango de duración</td><td>P4</td></tr>
+      <tr><td>Univariado U3</td><td>Eventos por acción homologada</td><td>P5</td></tr>
+      <tr><td>Bivariado B1</td><td>Energía y ahorro según la hora</td><td>P1, P2</td></tr>
+      <tr><td>Bivariado B2</td><td>Presencia y ahorro por tipo de zona</td><td>P3</td></tr>
+      <tr><td>Bivariado B3</td><td>Duración media y mediana por tipo de falla</td><td>P4</td></tr>
+      <tr><td>Multivariado M1</td><td>Ahorro por tipo de zona × franja × tipo de día, calculado sobre la combinación</td><td>P3</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- ============ 11 CONOCIMIENTOS ============ -->
+<section id="conocimientos">
+  <h2><span>11</span> Conocimientos evidentes</h2>
+  <p>Cada conocimiento sale de un análisis del dashboard y se recalcula en SQL con el bloque indicado, para que cualquiera pueda repetirlo.</p>
+
+  <article class="conocimiento" id="c1">
+    <header><span class="num-c">C1</span><h3>El control adaptativo ahorra alrededor del 70 % y el ahorro es máximo en la madrugada</h3></header>
+    <figure class="grafico-img"><img src="img/c1.svg" alt="Gráfico de barras y línea: energía y ahorro por hora; el ahorro llega a 82,7 % de 2 a 4 a. m. y es −14 % de día" loading="lazy" width="900" height="380"></figure>
+    <dl class="ficha-c">
+      <dt>Pregunta</dt><dd>P1. ¿Cuánta energía ahorra la atenuación frente a operar al 100 % y en qué horas?</dd>
+      <dt>Variables</dt><dd>Hora del día, energía consumida y energía de referencia (Wh).</dd>
+      <dt>Procedimiento</dt><dd>Ahorro % = (referencia − consumida) / referencia, sumando por hora (B1, bloque E38). La referencia es la luminaria encendida al 100 % de noche.</dd>
+      <dt>Resultado</dt><dd>En todo el periodo el ahorro es 70,4 % (KPI 3). De 2 a 4 a. m. llega a 82,7 %. Entre las 19 y 20 h baja a cerca de 63,6 %, cuando hay más presencia (5,8 detecciones por intervalo frente a 0,4 en la madrugada).</dd>
+      <dt>Hallazgo</dt><dd>El ahorro sigue a la presencia: donde hay menos gente, el control baja más el brillo.</dd>
+      <dt>Interpretación</dt><dd>La atenuación cumple su objetivo y la madrugada es la franja que más energía devuelve.</dd>
+      <dt>Utilidad</dt><dd>Respalda mantener la atenuación y muestra que el margen de mejora está en las primeras horas de la noche.</dd>
+      <dt>Limitación</dt><dd>La referencia es teórica (100 % toda la noche). El ahorro frente a otra política, como un horario fijo, sería menor.</dd>
+    </dl>
+  </article>
+
+  <article class="conocimiento" id="c2">
+    <header><span class="num-c">C2</span><h3>De día el ahorro es negativo porque algunas luminarias quedan encendidas, y se concentran en las que tuvieron falla de LDR</h3></header>
+    <figure class="grafico-img"><img src="img/c2.svg" alt="Barras de horas encendida por luminaria; AVC-L10 tiene 2.340 h y las demás alrededor de 1.816 h" loading="lazy" width="900" height="380"></figure>
+    <dl class="ficha-c">
+      <dt>Pregunta</dt><dd>P2. ¿Qué luminarias consumen de día y se asocia a fallas del sensor de luz?</dd>
+      <dt>Variables</dt><dd>Luminaria, es_noche, encendida, energía (Wh), fallas por tipo.</dd>
+      <dt>Procedimiento</dt><dd>Se filtran los intervalos de día con la luminaria encendida, se suma la energía por luminaria y se cruza con las fallas LECTURA_LDR (tabla del Resumen, bloque E42).</dd>
+      <dt>Resultado</dt><dd>Entre 6 a. m. y 5 p. m. el 0,8 % de los intervalos tiene la luminaria encendida y el ahorro es −14 %. AVC-L10 acumula 2.340 h encendida frente a unas 1.816 h de sus vecinas de la Avenida Central.</dd>
+      <dt>Hallazgo</dt><dd>Pocas luminarias concentran el consumo diurno y coinciden con fallas del LDR.</dd>
+      <dt>Interpretación</dt><dd>Una falla del sensor de luz no apaga la calle, pero hace que el control crea que es de noche y gaste energía sin necesidad.</dd>
+      <dt>Utilidad</dt><dd>Indica qué luminarias revisar primero (Decisión 1).</dd>
+      <dt>Limitación</dt><dd>Es una asociación: con estos datos no se prueba que toda la energía diurna se deba al LDR.</dd>
+    </dl>
+  </article>
+
+  <article class="conocimiento" id="c3">
+    <header><span class="num-c">C3</span><h3>La presencia, y con ella el ahorro, depende de la zona y del tipo de día a la vez</h3></header>
+    <figure class="grafico-img"><img src="img/c3.svg" alt="Barras agrupadas de detecciones por luminaria-día por tipo de zona y tipo de día" loading="lazy" width="900" height="380"></figure>
+    <dl class="ficha-c">
+      <dt>Pregunta</dt><dd>P3. ¿Difieren las zonas en presencia y ahorro según la franja y el tipo de día?</dd>
+      <dt>Variables</dt><dd>Tipo de zona, franja horaria, tipo de día, detecciones, energía y referencia.</dd>
+      <dt>Procedimiento</dt><dd>Matriz M1: cada celda se calcula sobre las filas que cumplen a la vez la zona, la franja y el tipo de día (bloque E41). Apoyo: E31.</dd>
+      <dt>Resultado</dt><dd>Las zonas residenciales tienen unas 172 detecciones por luminaria-día y las comerciales entre 546 y 608. La zona vial baja de 523 en días laborales a 376 en fin de semana, mientras la comercial sube a 608.</dd>
+      <dt>Hallazgo</dt><dd>Las zonas con menos presencia ahorran más (residencial cerca de 72 %, comercial cerca de 67 %). El efecto del fin de semana va en sentido contrario en la zona vial y en la comercial.</dd>
+      <dt>Interpretación</dt><dd>Una sola regla de atenuación para toda la ciudad deja ahorro sin aprovechar. El perfil debería ajustarse por zona y tipo de día.</dd>
+      <dt>Utilidad</dt><dd>Orienta perfiles de brillo por zona.</dd>
+      <dt>Limitación</dt><dd>Hay solo 8 días festivos en el periodo, así que las celdas de festivo tienen pocos datos.</dd>
+    </dl>
+  </article>
+
+  <article class="conocimiento" id="c4">
+    <header><span class="num-c">C4</span><h3>Las fallas de comunicación, PIR, sobretensión y driver tardan semanas, mientras fusibles y LED se resuelven en uno o dos días</h3></header>
+    <figure class="grafico-img"><img src="img/c4.svg" alt="Barras de duración media por tipo de falla, con una línea de referencia en 72 h" loading="lazy" width="900" height="380"></figure>
+    <dl class="ficha-c">
+      <dt>Pregunta</dt><dd>P4. ¿Qué tipos de falla tardan más en resolverse?</dd>
+      <dt>Variables</dt><dd>Tipo de falla, severidad, origen, horas de duración.</dd>
+      <dt>Procedimiento</dt><dd>Duración media y mediana por tipo de falla (B3, bloque E40) y distribución por rangos (U2, bloque E36).</dd>
+      <dt>Resultado</dt><dd>En la simulación, comunicación promedia 321 h, PIR 307 h, sobretensión 300 h y driver 240 h. Fusible promedia 24 h y LED fundido 50 h. En la maqueta, las fallas de comunicación duran en promedio 6,5 h.</dd>
+      <dt>Hallazgo</dt><dd>Las fallas más largas no son las más graves: sobretensión es de severidad alta, pero comunicación y PIR son media y baja.</dd>
+      <dt>Interpretación</dt><dd>La atención no está siguiendo la severidad: una falla de severidad alta, como la sobretensión, dura en promedio 12 días.</dd>
+      <dt>Utilidad</dt><dd>Sustenta un tiempo objetivo de atención por tipo de falla (Decisión 2).</dd>
+      <dt>Limitación</dt><dd>Los grupos son pequeños (7 a 15 fallas por tipo simulado) y la media se infla con pocas fallas muy largas. Por eso se compara con la mediana.</dd>
+    </dl>
+  </article>
+
+  <article class="conocimiento" id="c5">
+    <header><span class="num-c">C5</span><h3>El 97 % de los eventos los genera el control automático, y los críticos son menos del 1 %</h3></header>
+    <figure class="grafico-img"><img src="img/c5.svg" alt="Barras en escala logarítmica de eventos por quién actúa" loading="lazy" width="900" height="380"></figure>
+    <dl class="ficha-c">
+      <dt>Pregunta</dt><dd>P5. ¿Quién genera los eventos y cuántos son críticos?</dd>
+      <dt>Variables</dt><dd>Proceso, usuario que actúa, acción homologada, crítico.</dd>
+      <dt>Procedimiento</dt><dd>Conteo de eventos por proceso y usuario, y porcentaje de críticos (U3 y KPI 6; bloques E34 y E37; apoyo E29).</dd>
+      <dt>Resultado</dt><dd>De 66.562 eventos, 64.817 son del control adaptativo (97,4 %). Los técnicos registran 655 y los operadores 81. Hay 186 eventos críticos (0,28 %).</dd>
+      <dt>Hallazgo</dt><dd>La carga humana es baja y se concentra en fallas y mantenimientos.</dd>
+      <dt>Interpretación</dt><dd>Un tablero que muestre todos los eventos esconde lo importante. Hay que filtrar por críticos y por atención.</dd>
+      <dt>Utilidad</dt><dd>Define qué ver en la pantalla del operador.</dd>
+      <dt>Limitación</dt><dd>«Crítico» es una regla del modelo (falla o desconexión), no una medición del impacto en la calle.</dd>
+    </dl>
+  </article>
+</section>
+
+<!-- ============ 12 VALIDACIÓN ============ -->
+<section id="validacion">
+  <h2><span>12</span> Validación</h2>
+  <ul class="checklist">
+    <li><strong>Se obtienen de los datos:</strong> cada visual del dashboard se recalcula en SQL con su bloque de <code>15_dashboard_conocimientos.sql</code> (E34 a E45), y los valores coinciden sin filtros.</li>
+    <li><strong>Se pueden repetir:</strong> la simulación es determinista, el ETL es reejecutable sin duplicar (reejecución 1021: 0 filas) y todos los scripts están en el repositorio.</li>
+    <li><strong>Tamaño de los grupos:</strong> las comparaciones por zona usan entre 125.000 y 219.000 intervalos. Las de fallas usan entre 7 y 47 casos, por eso se reporta la mediana además de la media.</li>
+    <li><strong>Faltantes y anómalos:</strong> el 2,16 % de las filas se generó con defectos. Los nulos se imputaron y se marcaron, y las lecturas anómalas se conservaron marcadas. El bloque E44 compara el ahorro con y sin esas filas.</li>
+    <li><strong>Atípicos:</strong> las fallas más largas (bloque E45) se revisaron antes de interpretar la media, y no se descartaron.</li>
+    <li><strong>Asociación, no causalidad:</strong> las relaciones entre presencia, zona, fallas y consumo se presentan como asociaciones observadas.</li>
+  </ul>
+  <figure class="figura">
+    <img src="img/validacion_42.webp" alt="Resultado de 08_validacion.sql: 42 pruebas en PASA" loading="lazy" width="1182" height="603">
+    <figcaption><code>08_validacion.sql</code>: 42 de 42 pruebas en PASA (20 sobre el relacional y 22 sobre el data warehouse).</figcaption>
+  </figure>
+</section>
+
+<!-- ============ 13 DECISIONES ============ -->
+<section id="decisiones">
+  <h2><span>13</span> Decisiones</h2>
+  <div class="decisiones">
+    <article class="decision">
+      <h3>D1 · Revisar primero el LDR de las luminarias que encienden de día</h3>
+      <dl>
+        <dt>Acción</dt><dd>Programar mantenimiento correctivo de sensor para las luminarias con más energía diurna, empezando por AVC-L10. Agregar una alerta cuando una luminaria siga encendida de día durante más de 4 intervalos seguidos (1 h).</dd>
+        <dt>Respaldo</dt><dd>C2: ahorro diurno −14 %; AVC-L10 con 2.340 h encendida frente a unas 1.816 h de sus pares.</dd>
+        <dt>Dirigida a</dt><dd>Proceso de atención de fallas (supervisor Miguel Rojas) y técnicos de electrónica, en la Avenida Central primero.</dd>
+        <dt>Mejora esperada</dt><dd>Llevar el consumo diurno a cero y recuperar el ahorro perdido.</dd>
+        <dt>Indicador</dt><dd>«Encendida de día %» y «kWh de día» por semana. Meta: 0 %.</dd>
+        <dt>Limitaciones</dt><dd>La asociación con el LDR no prueba la causa. Hay que confirmar en campo antes de cambiar el sensor.</dd>
+      </dl>
+    </article>
+    <article class="decision">
+      <h3>D2 · Fijar un tiempo máximo de atención de 72 h para las fallas de comunicación, PIR, sobretensión y driver</h3>
+      <dl>
+        <dt>Acción</dt><dd>Fijar un tiempo objetivo de 72 h para las fallas de comunicación, PIR, sobretensión y driver, y asignarlas por especialidad (redes para comunicación, electricistas para sobretensión y driver).</dd>
+        <dt>Respaldo</dt><dd>C4: promedios de 240 a 321 h para esos tipos, frente a 24 h de fusible y 50 h de LED fundido.</dd>
+        <dt>Dirigida a</dt><dd>Proceso de atención de fallas y gestión del mantenimiento.</dd>
+        <dt>Mejora esperada</dt><dd>Menos días de operación con sensores o drivers dañados, y más disponibilidad.</dd>
+        <dt>Indicador</dt><dd>Duración mediana por tipo de falla y número de fallas abiertas por más de 72 h. Meta: mediana por debajo de 72 h.</dd>
+        <dt>Limitaciones</dt><dd>Las duraciones son simuladas y los grupos son pequeños. El tiempo objetivo se debe recalibrar con datos reales.</dd>
+      </dl>
+    </article>
+  </div>
+</section>
+
+<!-- ============ 14 RESULTADOS ============ -->
+<section id="resultados">
+  <h2><span>14</span> Productos y resultados</h2>
+  <div class="tabla-desplazable">
+  <table>
+    <thead><tr><th>Producto esperado</th><th>Producto alcanzado</th><th>Evidencia verificable</th></tr></thead>
+    <tbody>
+      <tr><td>Modelo relacional con usuarios, procesos, dispositivos, mediciones y eventos</td><td>25 tablas, 42 claves foráneas, 33 restricciones CHECK</td><td>Scripts 01, 02 y 10; diagrama relacional</td></tr>
+      <tr><td>Al menos 1.000.000 de mediciones simuladas</td><td>1.000.000 de mediciones simuladas más las de la maqueta</td><td>Script 03; validación de volumen</td></tr>
+      <tr><td>Data warehouse en esquema estrella</td><td>Dos estrellas con dimensiones conformadas y agregados</td><td>Scripts 04, 05 y 11</td></tr>
+      <tr><td>ETL en SSIS</td><td>Ejecución 1015: 1.000.320 mediciones y 66.562 eventos cargados, 395 rechazados; reejecución con 0 filas</td><td><code>ETL_NeoGrid.dtsx</code>; tablas <code>etl_ejecucion</code> y <code>etl_rechazo</code></td></tr>
+      <tr><td>Validaciones</td><td>42 de 42 pruebas aprobadas</td><td><code>08_validacion.sql</code></td></tr>
+      <tr><td>Dashboard de Power BI integrado</td><td>4 páginas: 6 indicadores, 3 univariados, 3 bivariados, 1 multivariado</td><td>Sección <a href="#dashboard">Dashboard</a>; <code>14</code> y <code>15</code></td></tr>
+      <tr><td>Cinco conocimientos y dos decisiones</td><td>C1 a C5 y D1 a D2</td><td>Secciones 11 y 13</td></tr>
+      <tr><td>Sitio web publicado</td><td>Este sitio en GitHub Pages</td><td>URL del sitio</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="enlaces">
+    <a class="boton" href="https://github.com/Brenyan10/neogrid-alumbrado">Repositorio con los scripts y el paquete SSIS</a>
+    <a class="boton boton--claro" href="https://neogrid-alumbrado.onrender.com">Tablero web de la maqueta</a>
+  </p>
+</section>
+
+<!-- ============ 15 CONCLUSIONES ============ -->
+<section id="conclusiones">
+  <h2><span>15</span> Conclusiones</h2>
+  <h3>Cumplimiento de los objetivos</h3>
+  <ul>
+    <li>El modelo relacional, la simulación, el data warehouse y el ETL quedaron construidos y verificados: 42 pruebas aprobadas, carga sin pérdidas y reejecución sin duplicados.</li>
+    <li>El dashboard responde las cinco preguntas con indicadores, análisis univariados, bivariados y multivariado, y cada cifra se puede recalcular en SQL.</li>
+    <li>Los cinco conocimientos llevan a dos decisiones concretas, con su indicador de seguimiento.</li>
+  </ul>
+  <h3>Limitaciones</h3>
+  <ul>
+    <li>La mayor parte de los datos es simulada. Las sesiones físicas de la maqueta cubren pocas horas.</li>
+    <li>Los grupos de fallas son pequeños y los festivos son solo 8 días.</li>
+    <li>El ahorro se mide contra una referencia teórica del 100 %.</li>
+  </ul>
+  <h3>Oportunidades de mejora</h3>
+  <ul>
+    <li>Acumular más horas de operación real de la maqueta para recalibrar las reglas de presencia.</li>
+    <li>Automatizar la alerta de encendido diurno de la Decisión 1 en el ESP32 o en el tablero.</li>
+    <li>Programar la actualización del dashboard después de cada ejecución del ETL.</li>
+  </ul>
+</section>
+
+<!-- ============ 16 REFERENCIAS ============ -->
+<section id="referencias">
+  <h2><span>16</span> Referencias</h2>
+  <ul class="referencias">
+    <li id="ref-bogota">Alcaldía de Bogotá. (2026, 15 de octubre). <em>Más de 100.000 nodos con telegestión para modernizar el alumbrado público de Bogotá con Acuerdo «Ciudad Inteligente»</em>. <a href="https://bogota.gov.co/mi-ciudad/habitat/2026-10/100000-nodos-con-telegestion-en-alumbrado-publico-inteligente-bogota">https://bogota.gov.co/mi-ciudad/habitat/2026-10/100000-nodos-con-telegestion-en-alumbrado-publico-inteligente-bogota</a></li>
+    <li>Chapman, P., Clinton, J., Kerber, R., Khabaza, T., Reinartz, T., Shearer, C. y Wirth, R. (2000). <em>CRISP-DM 1.0: Step-by-step data mining guide</em>. SPSS.</li>
+    <li>Codd, E. F. (1970). A relational model of data for large shared data banks. <em>Communications of the ACM, 13</em>(6), 377–387. <a href="https://doi.org/10.1145/362384.362685">https://doi.org/10.1145/362384.362685</a></li>
+    <li>Kimball, R. y Ross, M. (2013). <em>The data warehouse toolkit: The definitive guide to dimensional modeling</em> (3.ª ed.). Wiley.</li>
+    <li>Lau, S. P., Merrett, G. V. y White, N. M. (2013). Energy-efficient street lighting through embedded adaptive intelligence. En <em>2013 International Conference on Advanced Logistics and Transport (ICALT)</em>. IEEE. <a href="https://doi.org/10.1109/ICAdLT.2013.6568434">https://doi.org/10.1109/ICAdLT.2013.6568434</a></li>
+    <li>Lau, S. P., Merrett, G. V., Weddell, A. S. y White, N. M. (2015). A traffic-aware street lighting scheme for smart cities using autonomous networked sensors. <em>Computers &amp; Electrical Engineering, 45</em>, 192–207. <a href="https://doi.org/10.1016/j.compeleceng.2015.06.011">https://doi.org/10.1016/j.compeleceng.2015.06.011</a></li>
+    <li>Microsoft. (s. f.-a). <em>Publish to web from Power BI</em>. Microsoft Learn. <a href="https://learn.microsoft.com/en-us/power-bi/collaborate-share/service-publish-to-web">https://learn.microsoft.com/en-us/power-bi/collaborate-share/service-publish-to-web</a></li>
+    <li>Microsoft. (s. f.-b). <em>SQL Server Integration Services</em>. Microsoft Learn. <a href="https://learn.microsoft.com/en-us/sql/integration-services/sql-server-integration-services">https://learn.microsoft.com/en-us/sql/integration-services/sql-server-integration-services</a></li>
+  </ul>
+</section>
+
+<footer class="pie">
+  <p>NeoGrid · Alumbrado público inteligente · Brayan Sánchez y Elkin Arévalo · Big Data, Universidad de Cundinamarca, Extensión Chía · 2026</p>
+</footer>
+</main>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
